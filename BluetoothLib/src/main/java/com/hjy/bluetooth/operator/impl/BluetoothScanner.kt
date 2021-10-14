@@ -1,0 +1,225 @@
+package com.hjy.bluetooth.operator.impl
+
+import android.bluetooth.BluetoothAdapter
+import android.bluetooth.BluetoothAdapter.LeScanCallback
+import android.bluetooth.le.BluetoothLeScanner
+import android.bluetooth.le.ScanCallback
+import android.bluetooth.le.ScanResult
+import android.content.BroadcastReceiver
+import android.content.Context
+import android.content.Intent
+import android.content.IntentFilter
+import android.content.pm.PackageManager
+import android.os.Build
+import android.os.Handler
+import android.os.Looper
+import android.support.annotation.RequiresApi
+import com.hjy.bluetooth.entity.BluetoothDevice
+import com.hjy.bluetooth.inter.ScanCallBack
+import com.hjy.bluetooth.operator.abstra.Scanner
+import java.util.*
+
+/**
+ * Created by _H_JY on 2018/10/20.
+ */
+class BluetoothScanner : Scanner {
+    private var scanType = 0
+    private var mContext: Context? = null
+    private var scanCallBack: ScanCallBack? = null
+    private var bluetoothLeScanner: BluetoothLeScanner? = null
+    private var bluetoothDevices: MutableList<BluetoothDevice>? = null
+    private var bluetoothAdapter: BluetoothAdapter? = null
+    private var handler: Handler? = null
+
+    constructor(context: Context?, bluetoothAdapter: BluetoothAdapter?) {
+        mContext = context
+        this.bluetoothAdapter = bluetoothAdapter
+    }
+
+    @Synchronized
+    override fun scan(scanType: Int, scanCallBack: ScanCallBack) {
+        startScan(scanType, 0, scanCallBack)
+    }
+
+    override fun scan(scanType: Int, timeUse: Int, scanCallBack: ScanCallBack) {
+        startScan(scanType, timeUse, scanCallBack)
+    }
+
+    private fun startScan(scanType: Int, timeUse: Int, scanCallBack: ScanCallBack) {
+        this.scanType = scanType
+        this.scanCallBack = scanCallBack
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.JELLY_BEAN_MR2) {
+            if (this.scanCallBack != null) {
+                this.scanCallBack!!.onError(1, "Only system versions above Android 4.3 are supported.")
+            }
+            return
+        }
+        if (this.scanType == BluetoothDevice.DEVICE_TYPE_LE && !mContext!!.packageManager.hasSystemFeature(PackageManager.FEATURE_BLUETOOTH_LE)) {
+            if (this.scanCallBack != null) {
+                this.scanCallBack!!.onError(2, "Your device does not support low-power Bluetooth.")
+            }
+            return
+        }
+        if (bluetoothDevices == null) {
+            bluetoothDevices = ArrayList()
+        } else if (bluetoothDevices!!.size > 0) {
+            bluetoothDevices!!.clear()
+        }
+        if (this.scanCallBack != null) {
+            this.scanCallBack!!.onScanStart()
+        }
+        if (this.scanType == BluetoothDevice.DEVICE_TYPE_CLASSIC) {
+            unregisterReceiver()
+
+            // Register for broadcasts when a device is discovered
+            var filter = IntentFilter(android.bluetooth.BluetoothDevice.ACTION_FOUND)
+            mContext!!.registerReceiver(mReceiver, filter)
+            // Register for broadcasts when discovery has finished
+            filter = IntentFilter(BluetoothAdapter.ACTION_DISCOVERY_FINISHED)
+            mContext!!.registerReceiver(mReceiver, filter)
+            // If we're already discovering, stop it
+            if (bluetoothAdapter!!.isDiscovering) {
+                bluetoothAdapter!!.cancelDiscovery()
+            }
+            bluetoothAdapter!!.startDiscovery()
+        } else if (this.scanType == BluetoothDevice.DEVICE_TYPE_LE) {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+                //After 5.0 use BluetoothLeScanner to scan
+                //Because bluetoothAdapter.startLeScan deprecated
+                bluetoothLeScanner = bluetoothAdapter!!.bluetoothLeScanner
+                bluetoothLeScanner?.startScan(mScanCallback)
+            } else {
+                bluetoothAdapter!!.startLeScan(mLeScanCallBack)
+            }
+        }
+
+        //Auto stop when time out
+        if (timeUse != 0) {
+            if (handler == null) {
+                handler = Handler(Looper.getMainLooper())
+            }
+            handler!!.postDelayed({ stopScan() }, timeUse.toLong())
+        }
+    }
+
+    //CLASSIC BLUETOOTH
+    // The BroadcastReceiver that listens for discovered devices and
+    // changes the title when discovery is finished
+    private val mReceiver: BroadcastReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context, intent: Intent) {
+            val action = intent.action
+
+            // When discovery finds a device
+            if (android.bluetooth.BluetoothDevice.ACTION_FOUND == action) {
+                // Get the BluetoothDevice object from the Intent
+                val device = intent
+                        .getParcelableExtra<android.bluetooth.BluetoothDevice>(android.bluetooth.BluetoothDevice.EXTRA_DEVICE)
+                // new device found
+                val bluetoothDevice = BluetoothDevice()
+                bluetoothDevice.isPaired = device.bondState == android.bluetooth.BluetoothDevice.BOND_BONDED
+                bluetoothDevice.address = device.address
+                bluetoothDevice.name = device.name
+                bluetoothDevice.type = device.type
+                if (bluetoothDevices != null && bluetoothDevices!!.size > 0) {
+                    if (bluetoothDevices!!.contains(bluetoothDevice)) {
+                        return
+                    }
+                }
+                bluetoothDevices!!.add(bluetoothDevice)
+                if (scanCallBack != null) {
+                    scanCallBack!!.onScanning(bluetoothDevices, bluetoothDevice)
+                }
+
+                // When discovery is finished, change the Activity title
+            } else if (BluetoothAdapter.ACTION_DISCOVERY_FINISHED == action) {
+                if (scanCallBack != null) {
+                    scanCallBack!!.onScanFinished(bluetoothDevices)
+                }
+            }
+        }
+    }
+
+    //Ble scan callback before 5.0
+    private val mLeScanCallBack = LeScanCallback { bluetoothDevice, i, bytes ->
+        val device = BluetoothDevice()
+        device.name = bluetoothDevice.name
+        device.address = bluetoothDevice.address
+        device.type = BluetoothDevice.DEVICE_TYPE_LE
+        device.scanRecord = bytes
+        if (bluetoothDevices!!.contains(device)) {
+            val index = bluetoothDevices!!.indexOf(device)
+            bluetoothDevices!![index] = device
+        } else {
+            bluetoothDevices!!.add(device)
+        }
+        if (scanCallBack != null) {
+            if (handler == null) {
+                handler = Handler(Looper.getMainLooper())
+            }
+            handler!!.post { scanCallBack!!.onScanFinished(bluetoothDevices) }
+        }
+    }
+
+    //Ble scan callback after 5.0
+    @RequiresApi(Build.VERSION_CODES.LOLLIPOP)
+    private val mScanCallback: ScanCallback = object : ScanCallback() {
+        override fun onScanResult(callbackType: Int, result: ScanResult) {
+            super.onScanResult(callbackType, result)
+            val bluetoothDevice = result.device
+            val device = BluetoothDevice()
+            device.name = bluetoothDevice.name
+            device.address = bluetoothDevice.address
+            device.type = BluetoothDevice.DEVICE_TYPE_LE
+            if (result.scanRecord != null) {
+                device.scanRecord = result.scanRecord.bytes
+            }
+            if (bluetoothDevices!!.contains(device)) {
+                val index = bluetoothDevices!!.indexOf(device)
+                bluetoothDevices!![index] = device
+            } else {
+                bluetoothDevices!!.add(device)
+            }
+            if (scanCallBack != null) {
+                if (handler == null) {
+                    handler = Handler(Looper.getMainLooper())
+                }
+                handler!!.post { scanCallBack!!.onScanFinished(bluetoothDevices) }
+            }
+        }
+
+        override fun onBatchScanResults(results: List<ScanResult>) {
+            super.onBatchScanResults(results)
+        }
+
+        override fun onScanFailed(errorCode: Int) {
+            super.onScanFailed(errorCode)
+            if (scanCallBack != null) {
+                scanCallBack!!.onError(errorCode, "Scan Failed!")
+            }
+        }
+    }
+
+    @Synchronized
+    override fun stopScan() {
+        if (scanType == BluetoothDevice.DEVICE_TYPE_CLASSIC) {
+            if (bluetoothAdapter!!.isDiscovering) {
+                bluetoothAdapter!!.cancelDiscovery()
+            }
+            unregisterReceiver()
+        } else if (scanType == BluetoothDevice.DEVICE_TYPE_LE) {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP && bluetoothLeScanner != null) {
+                bluetoothLeScanner!!.stopScan(mScanCallback)
+            } else {
+                bluetoothAdapter!!.stopLeScan(mLeScanCallBack)
+            }
+        }
+    }
+
+    private fun unregisterReceiver() {
+        try {
+            mContext!!.unregisterReceiver(mReceiver)
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+    }
+}
