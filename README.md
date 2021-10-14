@@ -27,7 +27,7 @@ Add it in your root build.gradle at the end of repositories:
 
 1.第一步，使用前先实例化HBluetooth（全局单例）,并且必须调用enableBluetooth()方法开启蓝牙功能：
  
-               HBluetooth.getInstance(this).enableBluetooth()；
+               HBluetooth.getInstance(this).enableBluetooth()
  
  
  
@@ -35,114 +35,112 @@ Add it in your root build.gradle at the end of repositories:
 
                HBluetooth.getInstance(this)
                     .scanner()
-                    .scan(type, new ScanCallBack() {
-                @Override
-                public void onScanStart() {
-                    Log.i(TAG, "开始扫描");
-                }
-
-                @Override
-                public void onScanning() {
-                    Log.i(TAG, "扫描中");
-                }
-
-                @Override
-                public void onError(int errorType, String errorMsg) {
-
-                }
-
-                @Override
-                public void onScanFinished(List<BluetoothDevice> bluetoothDevices) {
-                    Log.i(TAG, "扫描结束");
-                    if (bluetoothDevices != null && bluetoothDevices.size() > 0) {
-                        list.clear();
-                        list.addAll(bluetoothDevices);
-                        adapter.notifyDataSetChanged();
+                    .scan(type, object : ScanCallBack {
+                    override fun onScanStart() {
+                        Log.i(TAG, "开始扫描")
                     }
-                }
-            });
+
+                    override fun onScanning(scannedDevices: List<BluetoothDevice>?, currentScannedDevice: BluetoothDevice?) {
+                        Log.i(TAG, "扫描中")
+                        if (scannedDevices != null && scannedDevices.size > 0) {
+                            list!!.clear()
+                            list.addAll(scannedDevices)
+                            adapter!!.notifyDataSetChanged()
+                        }
+                    }
+
+                    override fun onError(errorType: Int, errorMsg: String?) {}
+                    override fun onScanFinished(bluetoothDevices: List<BluetoothDevice>?) {
+                        Log.i(TAG, "扫描结束")
+                        if (bluetoothDevices != null && bluetoothDevices.size > 0) {
+                            list!!.clear()
+                            list.addAll(bluetoothDevices)
+                            adapter!!.notifyDataSetChanged()
+                        }
+                    }
+                })
             
             
     或者，如果你想在第一步操作后直接进行扫描，则可以这样调用：
             HBluetooth.getInstance(this)
                     .enableBluetooth()
-                    .scan(type, new ScanCallBack() {
-                @Override
-                public void onScanStart() {
-                    Log.i(TAG, "开始扫描");
-                }
-
-                @Override
-                public void onScanning() {
-                    Log.i(TAG, "扫描中");
-                }
-
-                @Override
-                public void onError(int errorType, String errorMsg) {
-
-                }
-
-                @Override
-                public void onScanFinished(List<BluetoothDevice> bluetoothDevices) {
-                    Log.i(TAG, "扫描结束");
-                    if (bluetoothDevices != null && bluetoothDevices.size() > 0) {
-                        list.clear();
-                        list.addAll(bluetoothDevices);
-                        adapter.notifyDataSetChanged();
+                    .scan(type, object : ScanCallBack {
+                    override fun onScanStart() {
+                        Log.i(TAG, "开始扫描")
                     }
-                }
-            });
+
+                    override fun onScanning(scannedDevices: List<BluetoothDevice>?, currentScannedDevice: BluetoothDevice?) {
+                        Log.i(TAG, "扫描中")
+                        if (scannedDevices != null && scannedDevices.size > 0) {
+                            list!!.clear()
+                            list.addAll(scannedDevices)
+                            adapter!!.notifyDataSetChanged()
+                        }
+                    }
+
+                    override fun onError(errorType: Int, errorMsg: String?) {}
+                    override fun onScanFinished(bluetoothDevices: List<BluetoothDevice>?) {
+                        Log.i(TAG, "扫描结束")
+                        if (bluetoothDevices != null && bluetoothDevices.size > 0) {
+                            list!!.clear()
+                            list.addAll(bluetoothDevices)
+                            adapter!!.notifyDataSetChanged()
+                        }
+                    }
+                })
             
             
             
 3.一旦扫描到设备，你就可以找到目标设备并连接：
             
             HBluetooth.getInstance(this)
-                .connector()
-                .connect(device, new ConnectCallBack() {
-
-                    @Override
-                    public void onConnecting() {
-                        Log.i(TAG, "连接中...");
+                .connector()?
+                .connect(device, object : ConnectCallBack {
+                    override fun onConnecting() {
+                        Log.i(TAG, "连接中...")
                     }
 
-                    @Override
-                    public void onConnected() {
-                        Log.i(TAG, "连接成功");
+                    override fun onConnected(sender: Sender?) {
+                        Log.i(TAG, "连接成功,isConnected:" + mHBluetooth!!.isConnected)
+                        //调用发送器发送命令
+                        sender?.send(byteArrayOf(0x01, 0x02), object : SendCallBack {
+                            override fun onSending() {
+                                Log.i(TAG, "命令发送中...")
+                            }
+
+                            override fun onReceived(dataInputStream: DataInputStream?, bleValue: ByteArray) {
+                                Log.i(TAG, "onReceived->$dataInputStream---$bleValue")
+                            }
+                        })
                     }
 
-                    @Override
-                    public void onDisConnecting() {
-                        Log.i(TAG, "断开连接中...");
+                    override fun onDisConnecting() {
+                        Log.i(TAG, "断开连接中...")
                     }
 
-                    @Override
-                    public void onDisConnected() {
-                        Log.i(TAG, "已断开连接");
+                    override fun onDisConnected() {
+                        Log.i(TAG, "已断开连接,isConnected:" + mHBluetooth!!.isConnected)
                     }
 
-                    @Override
-                    public void onError(int errorType, String errorMsg) {
-                        Log.i(TAG, "错误类型：" + errorType + " 错误原因：" + errorMsg);
+                    override fun onError(errorType: Int, errorMsg: String) {
+                        Log.i(TAG, "错误类型：$errorType 错误原因：$errorMsg")
                     }
-                });
+                })
                 
                 
  4.设备连接成功后，你可以开始跟设备进行通信：
                
                HBluetooth.getInstance(this)
-                                .sender()
-                                .send(new byte[]{0x01, 0x02}, new SendCallBack() {
-                            @Override
-                            public void onSending() {
-                                Log.i(TAG, "命令发送中...");
+                                .sender()?
+                                .send(byteArrayOf(0x01, 0x02), object : SendCallBack {
+                            override fun onSending() {
+                                Log.i(TAG, "命令发送中...")
                             }
 
-                            @Override
-                            public void onReceived(DataInputStream dataInputStream, byte[] bleValue) {
-                                Log.i(TAG, "onReceived->" + dataInputStream + "---" + bleValue);
+                            override fun onReceived(dataInputStream: DataInputStream?, bleValue: ByteArray) {
+                                Log.i(TAG, "onReceived->$dataInputStream---$bleValue")
                             }
-                        });
+                        })
                         
  5.最后，调用以下方法去主动断开连接并释放资源 ：
                 
