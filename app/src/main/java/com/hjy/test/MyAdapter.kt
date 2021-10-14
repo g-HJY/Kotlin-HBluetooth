@@ -34,15 +34,19 @@ class MyAdapter(private val mContext: Context, private val list: List<BluetoothD
         val tvAddress = ViewHolder.getView<TextView>(convertView, R.id.tv_address)
         val tvRecord = ViewHolder.getView<TextView>(convertView, R.id.tv_record)
         val bluetoothDevice = list!![position]
-        tvName!!.text = bluetoothDevice.name
-        tvAddress!!.text = bluetoothDevice.address
-        val scanRecord = bluetoothDevice.scanRecord
-        if (scanRecord != null && scanRecord.size > 0) {
-            tvRecord!!.visibility = View.VISIBLE
-            tvRecord.text = Tools.bytesToHexString(scanRecord)
-        } else {
-            tvRecord!!.visibility = View.GONE
+
+        with(bluetoothDevice){
+            tvName!!.text = name
+            tvAddress!!.text = address
+            val scanRecord = scanRecord
+            if (scanRecord != null && scanRecord.isNotEmpty()) {
+                tvRecord!!.visibility = View.VISIBLE
+                tvRecord.text = Tools.bytesToHexString(scanRecord)
+            } else {
+                tvRecord!!.visibility = View.GONE
+            }
         }
+
         return convertView
     }
 
