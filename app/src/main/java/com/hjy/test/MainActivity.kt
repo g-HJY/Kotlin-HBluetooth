@@ -46,6 +46,7 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, OnItemClickListe
 
                     override fun onMtuChanged(mtuSize: Int) {}
                 })
+
     }
 
     override fun onDestroy() {
