@@ -11,14 +11,14 @@ import com.hjy.bluetooth.entity.BluetoothDevice
 /**
  * Created by Administrator on 2018/10/24.
  */
-class MyAdapter(private val mContext: Context, private val list: List<BluetoothDevice>?) : BaseAdapter() {
+class MyAdapter(private val mContext: Context, private val list: List<BluetoothDevice>) : BaseAdapter() {
 
     override fun getCount(): Int {
-        return list!!.size
+        return list.size
     }
 
     override fun getItem(position: Int): Any {
-        return list!![position]
+        return list[position]
     }
 
     override fun getItemId(position: Int): Long {
@@ -33,17 +33,17 @@ class MyAdapter(private val mContext: Context, private val list: List<BluetoothD
         val tvName = ViewHolder.getView<TextView>(convertView, R.id.tv_name)
         val tvAddress = ViewHolder.getView<TextView>(convertView, R.id.tv_address)
         val tvRecord = ViewHolder.getView<TextView>(convertView, R.id.tv_record)
-        val bluetoothDevice = list!![position]
+        val bluetoothDevice = list[position]
 
-        with(bluetoothDevice){
-            tvName!!.text = name
-            tvAddress!!.text = address
+        with(bluetoothDevice) {
+            tvName.text = name
+            tvAddress.text = address
             val scanRecord = scanRecord
             if (scanRecord != null && scanRecord.isNotEmpty()) {
-                tvRecord!!.visibility = View.VISIBLE
+                tvRecord.visibility = View.VISIBLE
                 tvRecord.text = Tools.bytesToHexString(scanRecord)
             } else {
-                tvRecord!!.visibility = View.GONE
+                tvRecord.visibility = View.GONE
             }
         }
 

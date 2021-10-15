@@ -8,7 +8,7 @@ import android.view.View
  */
 object ViewHolder {
 
-    fun <T : View> getView(convertView: View?, childViewId: Int): T? {
+    fun <T : View> getView(convertView: View?, childViewId: Int): T {
         var viewHolder = convertView?.tag as? SparseArray<View?>
         if (viewHolder == null) {
             viewHolder = SparseArray()

@@ -7,6 +7,7 @@ import android.view.View
 import android.widget.AdapterView
 import android.widget.AdapterView.OnItemClickListener
 import android.widget.ListView
+import android.widget.Toast
 import com.hjy.bluetooth.HBluetooth
 import com.hjy.bluetooth.entity.BluetoothDevice
 import com.hjy.bluetooth.exception.BleException
@@ -19,9 +20,9 @@ import java.io.DataInputStream
 import java.util.*
 
 class MainActivity : AppCompatActivity(), View.OnClickListener, OnItemClickListener {
-    private var listView: ListView? = null
+    private lateinit var listView: ListView
     private val list: MutableList<BluetoothDevice> = ArrayList()
-    private var adapter: MyAdapter? = null
+    private lateinit var adapter: MyAdapter
     private lateinit var mHBluetooth: HBluetooth
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -32,8 +33,8 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, OnItemClickListe
         findViewById<View>(R.id.btn_disconnect).setOnClickListener(this)
         listView = findViewById(R.id.listView)
         adapter = MyAdapter(this, list)
-        listView?.adapter = adapter
-        listView?.onItemClickListener = this
+        listView.adapter = adapter
+        listView.onItemClickListener = this
         mHBluetooth = HBluetooth.getInstance(this)
         mHBluetooth //开启蓝牙功能
                 .enableBluetooth() //低功耗蓝牙才需要设置，传入你自己的UUID
@@ -61,7 +62,7 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, OnItemClickListe
         } else {
             if (list != null && list.size > 0) {
                 list.clear()
-                adapter!!.notifyDataSetChanged()
+                adapter.notifyDataSetChanged()
             }
             var type = 0
             if (view.id == R.id.btn_scan_classic) {
@@ -87,20 +88,20 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, OnItemClickListe
 
                     override fun onScanning(scannedDevices: List<BluetoothDevice>?, currentScannedDevice: BluetoothDevice?) {
                         Log.i(TAG, "扫描中")
-                        if (scannedDevices != null && scannedDevices.size > 0) {
-                            list!!.clear()
+                        if (scannedDevices != null && scannedDevices.isNotEmpty()) {
+                            list.clear()
                             list.addAll(scannedDevices)
-                            adapter!!.notifyDataSetChanged()
+                            adapter.notifyDataSetChanged()
                         }
                     }
 
                     override fun onError(errorType: Int, errorMsg: String?) {}
                     override fun onScanFinished(bluetoothDevices: List<BluetoothDevice>?) {
                         Log.i(TAG, "扫描结束")
-                        if (bluetoothDevices != null && bluetoothDevices.size > 0) {
-                            list!!.clear()
+                        if (bluetoothDevices != null && bluetoothDevices.isNotEmpty()) {
+                            list.clear()
                             list.addAll(bluetoothDevices)
-                            adapter!!.notifyDataSetChanged()
+                            adapter.notifyDataSetChanged()
                         }
                     }
                 })
@@ -109,7 +110,7 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, OnItemClickListe
     }
 
     override fun onItemClick(adapterView: AdapterView<*>?, view: View, i: Int, l: Long) {
-        val device = list!![i]
+        val device = list[i]
         //调用连接器连接蓝牙设备
         mHBluetooth.connector()
                 ?.connect(device, object : ConnectCallBack {
@@ -118,7 +119,7 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, OnItemClickListe
                     }
 
                     override fun onConnected(sender: Sender?) {
-                        Log.i(TAG, "连接成功,isConnected:" + mHBluetooth!!.isConnected)
+                        Log.i(TAG, "连接成功,isConnected:" + mHBluetooth.isConnected)
                         //调用发送器发送命令
                         sender?.send(byteArrayOf(0x01, 0x02), object : SendCallBack {
                             override fun onSending() {
@@ -136,7 +137,7 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, OnItemClickListe
                     }
 
                     override fun onDisConnected() {
-                        Log.i(TAG, "已断开连接,isConnected:" + mHBluetooth!!.isConnected)
+                        Log.i(TAG, "已断开连接,isConnected:" + mHBluetooth.isConnected)
                     }
 
                     override fun onError(errorType: Int, errorMsg: String) {
@@ -154,20 +155,21 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, OnItemClickListe
 
             override fun onScanning(scannedDevices: List<BluetoothDevice>?, currentScannedDevice: BluetoothDevice?) {
                 Log.i(TAG, "扫描中")
-                if (scannedDevices != null && scannedDevices.size > 0) {
-                    list!!.clear()
+                if (scannedDevices != null && scannedDevices.isNotEmpty()) {
+                    list.clear()
                     list.addAll(scannedDevices)
-                    adapter!!.notifyDataSetChanged()
+                    adapter.notifyDataSetChanged()
                 }
             }
 
             override fun onError(errorType: Int, errorMsg: String?) {}
             override fun onScanFinished(bluetoothDevices: List<BluetoothDevice>?) {
                 Log.i(TAG, "扫描结束")
-                if (bluetoothDevices != null && bluetoothDevices.size > 0) {
-                    list!!.clear()
+                Toast.makeText(this@MainActivity,"扫描结束",Toast.LENGTH_LONG).show()
+                if (bluetoothDevices != null && bluetoothDevices.isNotEmpty()) {
+                    list.clear()
                     list.addAll(bluetoothDevices)
-                    adapter!!.notifyDataSetChanged()
+                    adapter.notifyDataSetChanged()
                 }
             }
         })

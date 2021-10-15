@@ -23,12 +23,12 @@ import com.hjy.bluetooth.operator.abstra.Connector
  */
 class BluetoothConnector : Connector {
     private lateinit var mContext: Context
-    private var bluetoothAdapter: BluetoothAdapter? = null
+    private var bluetoothAdapter: BluetoothAdapter
     private var connectAsyncTask: BluetoothConnectAsyncTask? = null
     private var connectCallBack: ConnectCallBack? = null
     private var sendCallBack: SendCallBack? = null
 
-    constructor(context: Context, bluetoothAdapter: BluetoothAdapter?) {
+    constructor(context: Context, bluetoothAdapter: BluetoothAdapter) {
         mContext = context
         this.bluetoothAdapter = bluetoothAdapter
     }
@@ -40,12 +40,12 @@ class BluetoothConnector : Connector {
         val hBluetooth: HBluetooth? = HBluetooth.getInstance(mContext)
         hBluetooth?.destroyChannel()
         hBluetooth?.cancelScan()
-        val remoteDevice: android.bluetooth.BluetoothDevice = bluetoothAdapter!!.getRemoteDevice(device.address)
+        val remoteDevice: android.bluetooth.BluetoothDevice = bluetoothAdapter.getRemoteDevice(device.address)
         if (device.type == android.bluetooth.BluetoothDevice.DEVICE_TYPE_CLASSIC) { //Classic Bluetooth Type.
             if (remoteDevice?.bondState != android.bluetooth.BluetoothDevice.BOND_BONDED) { //If no paired,register a broadcast to paired.
                 /*Add automatic pairing*/
                 val filter = IntentFilter(android.bluetooth.BluetoothDevice.ACTION_PAIRING_REQUEST)
-                mContext!!.registerReceiver(object : BroadcastReceiver() {
+                mContext.registerReceiver(object : BroadcastReceiver() {
                     override fun onReceive(context: Context, intent: Intent) {
                         if (android.bluetooth.BluetoothDevice.ACTION_PAIRING_REQUEST == intent.action) {
                             try {
@@ -76,9 +76,8 @@ class BluetoothConnector : Connector {
     }
 
     fun cancelConnectAsyncTask() {
-        if (connectAsyncTask != null && connectAsyncTask!!.status == AsyncTask.Status.RUNNING) {
-            connectAsyncTask!!.cancel(true)
-            connectAsyncTask = null
+        if (connectAsyncTask != null && connectAsyncTask?.status == AsyncTask.Status.RUNNING) {
+            connectAsyncTask?.cancel(true)
         }
     }
 
@@ -94,23 +93,22 @@ class BluetoothConnector : Connector {
                     bluetoothSender.setConnector(this@BluetoothConnector).initChannel(gatt, android.bluetooth.BluetoothDevice.DEVICE_TYPE_LE, connectCallBack)
                     bluetoothSender.discoverServices()
                 }
-                if (connectCallBack != null) {
-                    connectCallBack!!.onConnected(sender)
-                }
+
+                connectCallBack?.let { it.onConnected(sender) }
+
             } else if (newState == BluetoothProfile.STATE_CONNECTING) {
-                if (connectCallBack != null) {
-                    connectCallBack!!.onConnecting()
-                }
+
+                connectCallBack?.let { it.onConnecting() }
+
             } else if (newState == BluetoothProfile.STATE_DISCONNECTED) {
-                HBluetooth.getInstance(mContext)?.isConnected = false
+
+                HBluetooth.getInstance(mContext).isConnected = false
                 gatt?.close()
-                if (connectCallBack != null) {
-                    connectCallBack!!.onDisConnected()
-                }
+                connectCallBack?.let { it.onDisConnected() }
+
             } else if (newState == BluetoothProfile.STATE_DISCONNECTING) {
-                if (connectCallBack != null) {
-                    connectCallBack!!.onDisConnecting()
-                }
+
+                connectCallBack?.let { it.onDisConnecting() }
             }
         }
 
@@ -120,14 +118,14 @@ class BluetoothConnector : Connector {
                 //At the software level, MTU setting is supported only when Android API version > = 21 (Android 5.0).
                 //At the hardware level, only modules with Bluetooth 4.2 and above can support the setting of MTU.
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
-                    val mtuSize: Int? = HBluetooth.getInstance(mContext)?.mtuSize
+                    val mtuSize: Int? = HBluetooth.getInstance(mContext).mtuSize
                     if (mtuSize != null) {
                         if (mtuSize in 24..511) {
                             gatt.requestMtu(mtuSize)
                         }
                     }
                 }
-                var writeCharacteristicUUID: String? = HBluetooth.getInstance(mContext)?.writeCharacteristicUUID
+                var writeCharacteristicUUID: String? = HBluetooth.getInstance(mContext).writeCharacteristicUUID
                 if (TextUtils.isEmpty(writeCharacteristicUUID)) {
                     writeCharacteristicUUID = "0000ffe1-0000-1000-8000-00805f9b34fb"
                 }
@@ -139,7 +137,7 @@ class BluetoothConnector : Connector {
                             for (k in characteristics.indices) {
                                 val bluetoothGattCharacteristic = characteristics[k]
                                 if (writeCharacteristicUUID == bluetoothGattCharacteristic.uuid.toString()) {
-                                    HBluetooth.getInstance(mContext)!!.sender()!!.initSenderHelper(bluetoothGattCharacteristic)
+                                    HBluetooth.getInstance(mContext).sender()?.initSenderHelper(bluetoothGattCharacteristic)
                                     gatt.setCharacteristicNotification(bluetoothGattCharacteristic, true)
                                 }
                             }
@@ -151,13 +149,13 @@ class BluetoothConnector : Connector {
 
         override fun onMtuChanged(gatt: BluetoothGatt, mtu: Int, status: Int) {
             super.onMtuChanged(gatt, mtu, status)
-            val mtuSize: Int? = HBluetooth.getInstance(mContext)?.mtuSize
-            val callback: BleMtuChangedCallback? = HBluetooth.getInstance(mContext)?.bleMtuChangedCallback
-            if (callback != null) {
+            val mtuSize: Int? = HBluetooth.getInstance(mContext).mtuSize
+            val callback: BleMtuChangedCallback? = HBluetooth.getInstance(mContext).bleMtuChangedCallback
+            callback?.let {
                 if (BluetoothGatt.GATT_SUCCESS == status && mtuSize == mtu) {
-                    callback.onMtuChanged(mtu)
+                    it.onMtuChanged(mtu)
                 } else {
-                    callback.onSetMTUFailure(mtu, BleException("MTU change failed!"))
+                    it.onSetMTUFailure(mtu, BleException("MTU change failed!"))
                 }
             }
         }
@@ -165,9 +163,7 @@ class BluetoothConnector : Connector {
         override fun onCharacteristicChanged(gatt: BluetoothGatt, characteristic: BluetoothGattCharacteristic) {
             super.onCharacteristicChanged(gatt, characteristic)
             val result = characteristic.value
-            if (sendCallBack != null) {
-                sendCallBack!!.onReceived(null, result)
-            }
+            sendCallBack?.let { it.onReceived(null, result) }
         }
     }
 }

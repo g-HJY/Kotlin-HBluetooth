@@ -19,10 +19,10 @@ import com.hjy.bluetooth.operator.impl.BluetoothSender
  * Created by _H_JY on 2018/10/20.
  */
 class HBluetooth private constructor(private val mContext: Context) {
-    private var mAdapter: BluetoothAdapter? = null
-    private var scanner: Scanner? = null
-    private var connector: Connector? = null
-    private var sender: Sender? = null
+    private lateinit var mAdapter: BluetoothAdapter
+    private lateinit var scanner: Scanner
+    private lateinit var connector: Connector
+    private lateinit var sender: Sender
     var isConnected = false
     var mtuSize = 0
         private set
@@ -40,37 +40,33 @@ class HBluetooth private constructor(private val mContext: Context) {
      *
      * @return
      */
-    fun enableBluetooth(): HBluetooth {
+    fun enableBluetooth(): HBluetooth = apply {
         mAdapter = BluetoothAdapter.getDefaultAdapter()
+
         if (mAdapter == null) {
             throw RuntimeException("Bluetooth unsupported!")
         }
-        if (!mAdapter!!.isEnabled) {
-            mAdapter!!.enable()
+        if (!mAdapter.isEnabled) {
+            mAdapter.enable()
         }
         scanner = BluetoothScanner(mContext, mAdapter)
         connector = BluetoothConnector(mContext, mAdapter)
         sender = BluetoothSender()
-        return this
     }
 
     val bondedDevices: Set<BluetoothDevice>?
-        get() = if (mAdapter == null) null else mAdapter!!.bondedDevices
+        get() = if (mAdapter == null) null else mAdapter.bondedDevices
 
     fun scan(@BluetoothType scanType: Int, scanCallBack: ScanCallBack) {
-        if (scanner != null) {
-            scanner!!.scan(scanType, scanCallBack)
-        }
+        scanner?.let { it.scan(scanType, scanCallBack) }
     }
 
     fun scan(@BluetoothType scanType: Int, timeUse: Int, scanCallBack: ScanCallBack) {
-        if (scanner != null) {
-            scanner!!.scan(scanType, timeUse, scanCallBack)
-        }
+        scanner?.let { it.scan(scanType, timeUse, scanCallBack) }
     }
 
     fun scanner(): Scanner? {
-        if (mAdapter == null || !mAdapter!!.isEnabled) {
+        if (mAdapter == null || !mAdapter.isEnabled) {
             throw RuntimeException("you must call enableBluetooth() first.")
         }
         return scanner
@@ -78,35 +74,30 @@ class HBluetooth private constructor(private val mContext: Context) {
 
     @Synchronized
     fun cancelScan() {
-        if (scanner != null) {
-            scanner!!.stopScan()
-        }
+        scanner?.let { it.stopScan() }
     }
 
     @Synchronized
     fun destroyChannel() {
-        if (sender != null) {
-            sender!!.destroyChannel()
-        }
+        sender?.let { it.destroyChannel() }
     }
 
     fun connector(): Connector? {
-        if (mAdapter == null || !mAdapter!!.isEnabled) {
+        if (mAdapter == null || !mAdapter.isEnabled) {
             throw RuntimeException("you must call enableBluetooth() first.")
         }
         return connector
     }
 
     fun sender(): Sender? {
-        if (mAdapter == null || !mAdapter!!.isEnabled) {
+        if (mAdapter == null || !mAdapter.isEnabled) {
             throw RuntimeException("you must call enableBluetooth() first.")
         }
         return sender
     }
 
-    fun setWriteCharacteristicUUID(writeCharacteristicUUID: String?): HBluetooth {
+    fun setWriteCharacteristicUUID(writeCharacteristicUUID: String?): HBluetooth = apply {
         this.writeCharacteristicUUID = writeCharacteristicUUID
-        return this
     }
 
     /**
@@ -116,7 +107,7 @@ class HBluetooth private constructor(private val mContext: Context) {
      * @param callback
      */
     fun setMtu(mtuSize: Int,
-               callback: BleMtuChangedCallback?): HBluetooth {
+               callback: BleMtuChangedCallback?): HBluetooth = apply {
         requireNotNull(callback) { "BleMtuChangedCallback can not be Null!" }
         if (mtuSize > ValueLimit.DEFAULT_MAX_MTU) {
             callback.onSetMTUFailure(mtuSize, BleException("requiredMtu should lower than 512 !"))
@@ -126,7 +117,6 @@ class HBluetooth private constructor(private val mContext: Context) {
         }
         this.mtuSize = mtuSize
         bleMtuChangedCallback = callback
-        return this
     }
 
     @Synchronized

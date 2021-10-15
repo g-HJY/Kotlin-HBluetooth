@@ -22,7 +22,7 @@ import java.lang.reflect.Method
  * Connected thread for classic bluetooth.
  */
 class BluetoothConnectAsyncTask(private val mContext: Context, private val bluetoothDevice: BluetoothDevice, private val connectCallBack: ConnectCallBack?) : WeakAsyncTask<Void?, Void?, Int, Context?>(mContext) {
-    private var bluetoothSocket: BluetoothSocket? = null
+    private lateinit var bluetoothSocket: BluetoothSocket
     private var sender: Sender? = null
     private var handler: Handler? = null
 
@@ -35,24 +35,23 @@ class BluetoothConnectAsyncTask(private val mContext: Context, private val bluet
             val maxTries = 3
             for (i in 0 until maxTries) {
                 try {
-                    bluetoothSocket!!.connect()
+                    bluetoothSocket.connect()
                     break
                 } catch (e: IOException) {
                     e.printStackTrace()
                     try {
-                        bluetoothSocket!!.close()
+                        bluetoothSocket.close()
                     } catch (e1: IOException) {
                         e1.printStackTrace()
                     }
                 }
             }
-            val hBluetooth: HBluetooth? = HBluetooth.getInstance(mContext)
-            hBluetooth?.isConnected = bluetoothSocket!!.isConnected
-            if (bluetoothSocket!!.isConnected) {
-                sender = hBluetooth?.sender()
-                if (sender != null) {
-                    sender!!.initChannel(bluetoothSocket, BluetoothDevice.DEVICE_TYPE_CLASSIC, connectCallBack)
-                }
+            val hBluetooth = HBluetooth.getInstance(mContext)
+            hBluetooth.isConnected = bluetoothSocket.isConnected
+            if (bluetoothSocket.isConnected) {
+                sender = hBluetooth.sender()
+                sender?.initChannel(bluetoothSocket, BluetoothDevice.DEVICE_TYPE_CLASSIC, connectCallBack)
+
                 return BluetoothState.CONNECT_SUCCESS
             }
         }
@@ -64,13 +63,13 @@ class BluetoothConnectAsyncTask(private val mContext: Context, private val bluet
         if (connectCallBack != null) {
             if (result == BluetoothState.CONNECT_SUCCESS) {
                 try {
-                    mContext!!.unregisterReceiver(mReceiver)
+                    mContext.unregisterReceiver(mReceiver)
                 } catch (e: Exception) {
                     e.printStackTrace()
                 }
                 val filter = IntentFilter()
                 filter.addAction(BluetoothDevice.ACTION_ACL_DISCONNECTED)
-                mContext!!.registerReceiver(mReceiver, filter)
+                mContext.registerReceiver(mReceiver, filter)
                 connectCallBack.onConnected(sender)
             } else {
                 connectCallBack.onError(BluetoothState.CONNECT_FAIL, "Connect failed!")
@@ -79,11 +78,10 @@ class BluetoothConnectAsyncTask(private val mContext: Context, private val bluet
     }
 
 
-
     private val mReceiver: BroadcastReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context, intent: Intent) {
             if (BluetoothDevice.ACTION_ACL_DISCONNECTED == intent.action) {
-                HBluetooth.getInstance(mContext)?.isConnected = false
+                HBluetooth.getInstance(mContext).isConnected = false
                 connectCallBack?.onDisConnected()
             }
         }
@@ -105,8 +103,6 @@ class BluetoothConnectAsyncTask(private val mContext: Context, private val bluet
             e.printStackTrace()
         }
     }
-
-
 
 
 }
