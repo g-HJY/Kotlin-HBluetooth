@@ -144,5 +144,5 @@ Add it in your root build.gradle at the end of repositories:
                         
  5.最后，调用以下方法去主动断开连接并释放资源：
                 
-                HBluetooth.getInstance(this).release();
+                HBluetooth.getInstance(this).release()
                 
