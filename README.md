@@ -1,5 +1,5 @@
 # HBluetooth
-封装了支持蓝牙2.0和4.0扫描，连接，以及通信的库。附带使用例子。该库后续会持续升级维护，敬请关注...
+封装了支持经典蓝牙和低功耗蓝牙扫描，连接，以及通信的库。附带使用例子。该库后续会持续升级维护，敬请关注...
 
 一.集成方式
 
@@ -31,7 +31,7 @@ Add it in your root build.gradle at the end of repositories:
  
  
  
- 2.开启蓝牙能力后，接着你就可以开始进行蓝牙设备扫描，其中，type 为蓝牙设备类型（蓝牙2.0或4.0）：
+ 2.开启蓝牙能力后，接着你就可以开始进行蓝牙设备扫描，其中，type 为蓝牙设备类型（经典蓝牙或低功耗蓝牙）：
 
                HBluetooth.getInstance(this)
                     .scanner()
@@ -128,7 +128,7 @@ Add it in your root build.gradle at the end of repositories:
                 })
                 
                 
- 4.设备连接成功后，你可以开始跟设备进行通信：
+ 4.设备连接成功后，你可以开始与设备进行通信：
                
                HBluetooth.getInstance(this)
                                 .sender()?
@@ -144,5 +144,5 @@ Add it in your root build.gradle at the end of repositories:
                         
  5.最后，调用以下方法去主动断开连接并释放资源：
                 
-                HBluetooth.getInstance(this).release();
+                HBluetooth.getInstance(this).release()
                 
