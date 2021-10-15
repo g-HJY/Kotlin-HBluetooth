@@ -128,7 +128,7 @@ Add it in your root build.gradle at the end of repositories:
                 })
                 
                 
- 4.设备连接成功后，你可以开始和设备进行通信：
+ 4.设备连接成功后，你可以开始与设备进行通信：
                
                HBluetooth.getInstance(this)
                                 .sender()?
