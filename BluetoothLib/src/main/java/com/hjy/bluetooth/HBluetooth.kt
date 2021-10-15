@@ -141,7 +141,7 @@ class HBluetooth private constructor(private val mContext: Context) {
 
         fun getInstance(context: Context): HBluetooth {
             if (mHBluetooth == null) {
-                synchronized(HBluetooth::class.java) {
+                synchronized(HBluetooth::class) {
                     if (mHBluetooth == null) {
                         mHBluetooth = HBluetooth(context.applicationContext)
                     }
