@@ -7,5 +7,5 @@ import java.io.DataInputStream
  */
 interface SendCallBack {
     fun onSending()
-    fun onReceived(dataInputStream: DataInputStream?, bleValue: ByteArray)
+    fun onReceived(dataInputStream: DataInputStream?, result: ByteArray)
 }

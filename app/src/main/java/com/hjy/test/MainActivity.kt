@@ -139,8 +139,8 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, OnItemClickListe
                                 Log.i(TAG, "命令发送中...")
                             }
 
-                            override fun onReceived(dataInputStream: DataInputStream?, bleValue: ByteArray) {
-                                Log.i(TAG, "onReceived->$dataInputStream---$bleValue")
+                            override fun onReceived(dataInputStream: DataInputStream?, result: ByteArray) {
+                                Log.i(TAG, "onReceived->$dataInputStream---$result")
                             }
                         })
                     }
