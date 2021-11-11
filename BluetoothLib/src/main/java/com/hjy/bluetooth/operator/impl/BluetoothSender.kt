@@ -27,7 +27,7 @@ class BluetoothSender : Sender() {
     }
 
     override fun discoverServices() {
-        gatt?.let { it.discoverServices() }
+        gatt?.discoverServices()
     }
 
     override fun <G> initSenderHelper(g: G): G? {
@@ -38,22 +38,19 @@ class BluetoothSender : Sender() {
 
     @Synchronized
     override fun destroyChannel() {
-        connector?.let {
-            it.cancelConnectAsyncTask()
-        }
+        connector?.cancelConnectAsyncTask()
+
         socket?.let { sIt ->
             try {
                 sIt.close()
                 socket = null
-                connectCallBack?.let { it.onDisConnected() }
+                connectCallBack?.onDisConnected()
             } catch (e: IOException) {
                 e.printStackTrace()
             }
         }
-        gatt?.let {
-            //will go to onConnectionStateChange()，and call gatt.close() to release
-            it.disconnect()
-        }
+        //will go to onConnectionStateChange()，and call gatt.close() to release
+        gatt?.disconnect()
     }
 
     override fun send(command: ByteArray?, sendCallBack: SendCallBack?) {
