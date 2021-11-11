@@ -9,14 +9,18 @@ import android.os.AsyncTask
 import android.os.Build
 import android.text.TextUtils
 import com.hjy.bluetooth.HBluetooth
+import com.hjy.bluetooth.HBluetooth.BleConfig
 import com.hjy.bluetooth.async.BluetoothConnectAsyncTask
 import com.hjy.bluetooth.constant.BluetoothState
 import com.hjy.bluetooth.entity.BluetoothDevice
 import com.hjy.bluetooth.exception.BleException
 import com.hjy.bluetooth.inter.BleMtuChangedCallback
+import com.hjy.bluetooth.inter.BleNotifyCallBack
 import com.hjy.bluetooth.inter.ConnectCallBack
 import com.hjy.bluetooth.inter.SendCallBack
 import com.hjy.bluetooth.operator.abstra.Connector
+import com.hjy.bluetooth.utils.BleNotifier.openNotification
+import java.util.*
 
 /**
  * Created by _H_JY on 2018/10/20.
@@ -26,6 +30,7 @@ class BluetoothConnector : Connector {
     private var bluetoothAdapter: BluetoothAdapter
     private var connectAsyncTask: BluetoothConnectAsyncTask? = null
     private var connectCallBack: ConnectCallBack? = null
+    private var bleNotifyCallBack: BleNotifyCallBack? = null
     private var sendCallBack: SendCallBack? = null
 
     constructor(context: Context, bluetoothAdapter: BluetoothAdapter) {
@@ -71,6 +76,12 @@ class BluetoothConnector : Connector {
         }
     }
 
+    override fun connect(device: BluetoothDevice?, connectCallBack: ConnectCallBack?, notifyCallBack: BleNotifyCallBack?) {
+        this.bleNotifyCallBack = notifyCallBack
+        connect(device!!, connectCallBack)
+    }
+
+
     fun setSendCallBack(sendCallBack: SendCallBack?) {
         this.sendCallBack = sendCallBack
     }
@@ -94,21 +105,21 @@ class BluetoothConnector : Connector {
                     bluetoothSender.discoverServices()
                 }
 
-                connectCallBack?.let { it.onConnected(sender) }
+                connectCallBack?.onConnected(sender)
 
             } else if (newState == BluetoothProfile.STATE_CONNECTING) {
 
-                connectCallBack?.let { it.onConnecting() }
+                connectCallBack?.onConnecting()
 
             } else if (newState == BluetoothProfile.STATE_DISCONNECTED) {
 
                 HBluetooth.getInstance(mContext).isConnected = false
                 gatt?.close()
-                connectCallBack?.let { it.onDisConnected() }
+                connectCallBack?.onDisConnected()
 
             } else if (newState == BluetoothProfile.STATE_DISCONNECTING) {
 
-                connectCallBack?.let { it.onDisConnecting() }
+                connectCallBack?.onDisConnecting()
             }
         }
 
@@ -117,28 +128,54 @@ class BluetoothConnector : Connector {
             if (status == BluetoothGatt.GATT_SUCCESS) {
                 //At the software level, MTU setting is supported only when Android API version > = 21 (Android 5.0).
                 //At the hardware level, only modules with Bluetooth 4.2 and above can support the setting of MTU.
+                val hBluetooth = HBluetooth.getInstance(mContext)
+                val bleConfig: BleConfig? = hBluetooth.mBleConfig
+                var mtuSize = 0
+                var mainServiceUUID: String? = null
+                var writeCharacteristicUUID: String? = null
+                var notifyUUID: String? = null
+                if (bleConfig != null) {
+                    mtuSize = bleConfig.mtuSize
+                    mainServiceUUID = bleConfig.serviceUUID
+                    writeCharacteristicUUID = bleConfig.writeCharacteristicUUID
+                    notifyUUID = bleConfig.notifyCharacteristicUUID
+                }
+                //At the software level, MTU setting is supported only when Android API version > = 21 (Android 5.0).
+                //At the hardware level, only modules with Bluetooth 4.2 and above can support the setting of MTU.
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
-                    val mtuSize: Int? = HBluetooth.getInstance(mContext).mtuSize
-                    if (mtuSize != null) {
-                        if (mtuSize in 24..511) {
-                            gatt.requestMtu(mtuSize)
-                        }
+                    if (mtuSize in 24..511) {
+                        gatt.requestMtu(mtuSize)
                     }
                 }
-                var writeCharacteristicUUID: String? = HBluetooth.getInstance(mContext).writeCharacteristicUUID
+
                 if (TextUtils.isEmpty(writeCharacteristicUUID)) {
                     writeCharacteristicUUID = "0000ffe1-0000-1000-8000-00805f9b34fb"
                 }
-                val services = gatt.services
-                if (services != null && services.size > 0) {
-                    for (i in services.indices) {
-                        val characteristics = services[i].characteristics
-                        if (characteristics != null && characteristics.size > 0) {
-                            for (k in characteristics.indices) {
-                                val bluetoothGattCharacteristic = characteristics[k]
-                                if (writeCharacteristicUUID == bluetoothGattCharacteristic.uuid.toString()) {
-                                    HBluetooth.getInstance(mContext).sender()?.initSenderHelper(bluetoothGattCharacteristic)
-                                    gatt.setCharacteristicNotification(bluetoothGattCharacteristic, true)
+                if (!TextUtils.isEmpty(mainServiceUUID)) {
+                    val service = gatt.getService(UUID.fromString(mainServiceUUID))
+                    if (service != null) {
+                        val writeCharacteristic = service.getCharacteristic(UUID.fromString(writeCharacteristicUUID))
+                        if (writeCharacteristic != null) {
+                            hBluetooth.sender()!!.initSenderHelper(writeCharacteristic)
+                        } else {
+                            bleNotifyCallBack?.onNotifyFailure(BleException("WriteCharacteristic is null,please check the writeCharacteristicUUID whether right"))
+                        }
+                        openNotification(mContext, gatt, service, notifyUUID, writeCharacteristic!!, bleNotifyCallBack)
+                    } else {
+                        bleNotifyCallBack?.onNotifyFailure(BleException("Main bluetoothGattService is null,please check the serviceUUID whether right"))
+                    }
+                } else {
+                    val services = gatt.services
+                    if (services != null && services.size > 0) {
+                        for (i in services.indices) {
+                            val characteristics = services[i].characteristics
+                            if (characteristics != null && characteristics.size > 0) {
+                                for (k in characteristics.indices) {
+                                    val bluetoothGattCharacteristic = characteristics[k]
+                                    if (writeCharacteristicUUID == bluetoothGattCharacteristic.uuid.toString()) {
+                                        HBluetooth.getInstance(mContext).sender()!!.initSenderHelper(bluetoothGattCharacteristic)
+                                        openNotification(mContext, gatt, services[i], notifyUUID, bluetoothGattCharacteristic, bleNotifyCallBack)
+                                    }
                                 }
                             }
                         }
@@ -149,8 +186,13 @@ class BluetoothConnector : Connector {
 
         override fun onMtuChanged(gatt: BluetoothGatt, mtu: Int, status: Int) {
             super.onMtuChanged(gatt, mtu, status)
-            val mtuSize: Int? = HBluetooth.getInstance(mContext).mtuSize
-            val callback: BleMtuChangedCallback? = HBluetooth.getInstance(mContext).bleMtuChangedCallback
+            val bleConfig: BleConfig? = HBluetooth.getInstance(mContext).mBleConfig
+            var mtuSize = 0
+            var callback: BleMtuChangedCallback? = null
+            if (bleConfig != null) {
+                mtuSize = bleConfig.mtuSize
+                callback = bleConfig.getBleMtuChangedCallback()
+            }
             callback?.let {
                 if (BluetoothGatt.GATT_SUCCESS == status && mtuSize == mtu) {
                     it.onMtuChanged(mtu)
@@ -163,7 +205,7 @@ class BluetoothConnector : Connector {
         override fun onCharacteristicChanged(gatt: BluetoothGatt, characteristic: BluetoothGattCharacteristic) {
             super.onCharacteristicChanged(gatt, characteristic)
             val result = characteristic.value
-            sendCallBack?.let { it.onReceived(null, result) }
+            sendCallBack?.onReceived(null, result)
         }
     }
 }

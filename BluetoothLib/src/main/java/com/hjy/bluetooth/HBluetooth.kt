@@ -1,5 +1,6 @@
 package com.hjy.bluetooth
 
+import android.annotation.SuppressLint
 import android.bluetooth.BluetoothAdapter
 import android.bluetooth.BluetoothDevice
 import android.content.Context
@@ -24,12 +25,7 @@ class HBluetooth private constructor(private val mContext: Context) {
     private lateinit var connector: Connector
     private lateinit var sender: Sender
     var isConnected = false
-    var mtuSize = 0
-        private set
-    var bleMtuChangedCallback: BleMtuChangedCallback? = null
-        private set
-    var writeCharacteristicUUID: String? = null
-        private set
+    var mBleConfig: BleConfig? = null
 
     @IntDef(BluetoothDevice.DEVICE_TYPE_CLASSIC.toLong(), BluetoothDevice.DEVICE_TYPE_LE.toLong())
     @kotlin.annotation.Retention(AnnotationRetention.SOURCE)
@@ -58,11 +54,11 @@ class HBluetooth private constructor(private val mContext: Context) {
         get() = if (mAdapter == null) null else mAdapter.bondedDevices
 
     fun scan(@BluetoothType scanType: Int, scanCallBack: ScanCallBack) {
-        scanner?.let { it.scan(scanType, scanCallBack) }
+        scanner?.scan(scanType, scanCallBack)
     }
 
     fun scan(@BluetoothType scanType: Int, timeUse: Int, scanCallBack: ScanCallBack) {
-        scanner?.let { it.scan(scanType, timeUse, scanCallBack) }
+        scanner?.scan(scanType, timeUse, scanCallBack)
     }
 
     fun scanner(): Scanner? {
@@ -74,12 +70,12 @@ class HBluetooth private constructor(private val mContext: Context) {
 
     @Synchronized
     fun cancelScan() {
-        scanner?.let { it.stopScan() }
+        scanner?.stopScan()
     }
 
     @Synchronized
     fun destroyChannel() {
-        sender?.let { it.destroyChannel() }
+        sender?.destroyChannel()
     }
 
     fun connector(): Connector? {
@@ -96,28 +92,59 @@ class HBluetooth private constructor(private val mContext: Context) {
         return sender
     }
 
-    fun setWriteCharacteristicUUID(writeCharacteristicUUID: String?): HBluetooth = apply {
-        this.writeCharacteristicUUID = writeCharacteristicUUID
+
+    class BleConfig {
+        var serviceUUID: String? = null
+            private set
+        var writeCharacteristicUUID: String? = null
+            private set
+        var notifyCharacteristicUUID: String? = null
+            private set
+        var isUseCharacteristicDescriptor = false
+            private set
+        var mtuSize = 0
+            private set
+        private var mBleMtuChangedCallback: BleMtuChangedCallback? = null
+
+        fun withServiceUUID(serviceUUID: String?): BleConfig = apply {
+            this.serviceUUID = serviceUUID
+        }
+
+        fun withWriteCharacteristicUUID(writeCharacteristicUUID: String?): BleConfig = apply {
+            this.writeCharacteristicUUID = writeCharacteristicUUID
+        }
+
+        fun withNotifyCharacteristicUUID(notifyCharacteristicUUID: String?): BleConfig = apply {
+            this.notifyCharacteristicUUID = notifyCharacteristicUUID
+        }
+
+        fun useCharacteristicDescriptor(useCharacteristicDescriptor: Boolean): BleConfig = apply {
+            isUseCharacteristicDescriptor = useCharacteristicDescriptor
+        }
+
+        /**
+         * set Mtu
+         *
+         * @param mtuSize
+         * @param callback
+         */
+        fun setMtu(mtuSize: Int, callback: BleMtuChangedCallback?): BleConfig = apply {
+            requireNotNull(callback) { "BleMtuChangedCallback can not be Null!" }
+            if (mtuSize > ValueLimit.DEFAULT_MAX_MTU) {
+                callback.onSetMTUFailure(mtuSize, BleException("requiredMtu should lower than 512 !"))
+            }
+            if (mtuSize < ValueLimit.DEFAULT_MTU) {
+                callback.onSetMTUFailure(mtuSize, BleException("requiredMtu should higher than 23 !"))
+            }
+            this.mtuSize = mtuSize
+            mBleMtuChangedCallback = callback
+        }
+
+        fun getBleMtuChangedCallback(): BleMtuChangedCallback? {
+            return mBleMtuChangedCallback
+        }
     }
 
-    /**
-     * set Mtu
-     *
-     * @param mtuSize
-     * @param callback
-     */
-    fun setMtu(mtuSize: Int,
-               callback: BleMtuChangedCallback?): HBluetooth = apply {
-        requireNotNull(callback) { "BleMtuChangedCallback can not be Null!" }
-        if (mtuSize > ValueLimit.DEFAULT_MAX_MTU) {
-            callback.onSetMTUFailure(mtuSize, BleException("requiredMtu should lower than 512 !"))
-        }
-        if (mtuSize < ValueLimit.DEFAULT_MTU) {
-            callback.onSetMTUFailure(mtuSize, BleException("requiredMtu should higher than 23 !"))
-        }
-        this.mtuSize = mtuSize
-        bleMtuChangedCallback = callback
-    }
 
     @Synchronized
     fun release() {
@@ -126,6 +153,7 @@ class HBluetooth private constructor(private val mContext: Context) {
     }
 
     companion object {
+        @SuppressLint("StaticFieldLeak")
         @Volatile
         private var mHBluetooth: HBluetooth? = null
 

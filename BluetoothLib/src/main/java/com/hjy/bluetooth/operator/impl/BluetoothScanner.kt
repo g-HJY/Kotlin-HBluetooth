@@ -42,6 +42,7 @@ class BluetoothScanner : Scanner {
         startScan(scanType, 0, scanCallBack)
     }
 
+    @Synchronized
     override fun scan(scanType: Int, timeUse: Int, scanCallBack: ScanCallBack) {
         startScan(scanType, timeUse, scanCallBack)
     }
@@ -50,18 +51,18 @@ class BluetoothScanner : Scanner {
         this.scanType = scanType
         this.scanCallBack = scanCallBack
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.JELLY_BEAN_MR2) {
-            this.scanCallBack?.let { it.onError(1, "Only system versions above Android 4.3 are supported.") }
+            this.scanCallBack?.onError(1, "Only system versions above Android 4.3 are supported.")
             return
         }
         if (this.scanType == BluetoothDevice.DEVICE_TYPE_LE && !mContext.packageManager.hasSystemFeature(PackageManager.FEATURE_BLUETOOTH_LE)) {
-            this.scanCallBack?.let { it.onError(2, "Your device does not support low-power Bluetooth.") }
+            this.scanCallBack?.onError(2, "Your device does not support low-power Bluetooth.")
             return
         }
 
         bluetoothDevices = ArrayList()
 
 
-        this.scanCallBack?.let { it.onScanStart() }
+        this.scanCallBack?.onScanStart()
 
         if (this.scanType == BluetoothDevice.DEVICE_TYPE_CLASSIC) {
             unregisterReceiver()
@@ -93,7 +94,7 @@ class BluetoothScanner : Scanner {
             }
         }
 
-        //Auto stop when time out
+        //Auto stop scan when time out
         if (timeUse != 0) {
             if (handler == null) {
                 handler = Handler(Looper.getMainLooper())
@@ -127,15 +128,13 @@ class BluetoothScanner : Scanner {
                     }
                 }
                 bluetoothDevices.add(bluetoothDevice)
-                scanCallBack?.let {
-                    it.onScanning(bluetoothDevices, bluetoothDevice)
-                }
+                scanCallBack?.onScanning(bluetoothDevices, bluetoothDevice)
+
 
                 // When discovery is finished, change the Activity title
             } else if (BluetoothAdapter.ACTION_DISCOVERY_FINISHED == action) {
-                scanCallBack?.let {
-                    it.onScanFinished(bluetoothDevices)
-                }
+                scanCallBack?.onScanFinished(bluetoothDevices)
+
                 isScanning = false
             }
         }
@@ -195,9 +194,7 @@ class BluetoothScanner : Scanner {
 
         override fun onScanFailed(errorCode: Int) {
             super.onScanFailed(errorCode)
-            scanCallBack?.let {
-                it.onError(errorCode, "Scan Failed!")
-            }
+            scanCallBack?.onError(errorCode, "Scan Failed!")
         }
     }
 

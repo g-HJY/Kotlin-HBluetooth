@@ -9,21 +9,21 @@ import android.widget.AdapterView.OnItemClickListener
 import android.widget.ListView
 import android.widget.Toast
 import com.hjy.bluetooth.HBluetooth
+import com.hjy.bluetooth.HBluetooth.BleConfig
 import com.hjy.bluetooth.entity.BluetoothDevice
 import com.hjy.bluetooth.exception.BleException
-import com.hjy.bluetooth.inter.BleMtuChangedCallback
-import com.hjy.bluetooth.inter.ConnectCallBack
-import com.hjy.bluetooth.inter.ScanCallBack
-import com.hjy.bluetooth.inter.SendCallBack
+import com.hjy.bluetooth.inter.*
 import com.hjy.bluetooth.operator.abstra.Sender
 import java.io.DataInputStream
 import java.util.*
+
 
 class MainActivity : AppCompatActivity(), View.OnClickListener, OnItemClickListener {
     private lateinit var listView: ListView
     private val list: MutableList<BluetoothDevice> = ArrayList()
     private lateinit var adapter: MyAdapter
     private lateinit var mHBluetooth: HBluetooth
+
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -35,19 +35,32 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, OnItemClickListe
         adapter = MyAdapter(this, list)
         listView.adapter = adapter
         listView.onItemClickListener = this
+
+        //实例化HBluetooth
         mHBluetooth = HBluetooth.getInstance(this)
-        mHBluetooth //开启蓝牙功能
-                .enableBluetooth() //低功耗蓝牙才需要设置，传入你自己的UUID
-                .setWriteCharacteristicUUID("0000fe61-0000-1000-8000-00805f9b34fb") //设置MTU扩容
-                .setMtu(200, object : BleMtuChangedCallback {
 
-                    override fun onSetMTUFailure(realMtuSize: Int, bleException: BleException?) {
-                        Log.i(TAG, "bleException:" + bleException?.message + "  realMtuSize:" + realMtuSize)
-                    }
+        //开启蓝牙功能
+        mHBluetooth.enableBluetooth()
 
-                    override fun onMtuChanged(mtuSize: Int) {}
-                })
 
+        //请填写你自己设备的UUID
+        //低功耗蓝牙才需要配置mHBluetooth.mBleConfig = ...
+        mHBluetooth.mBleConfig = BleConfig().apply {
+            withServiceUUID("0000fe61-0000-1000-8000-00805f9b34fb")
+            withWriteCharacteristicUUID("0000fe61-0000-1000-8000-00805f9b34fb")
+            withNotifyCharacteristicUUID("0000fe61-0000-1000-8000-00805f9b34fb") //useCharacteristicDescriptor 默认为false
+            //默认为false
+            //useCharacteristicDescriptor(false)
+            setMtu(200, object : BleMtuChangedCallback {
+                override fun onSetMTUFailure(realMtuSize: Int, bleException: BleException?) {
+                    Log.i(TAG, "bleException:" + bleException!!.message + "  realMtuSize:" + realMtuSize)
+                }
+
+                override fun onMtuChanged(mtuSize: Int) {
+                    Log.i(TAG, "Mtu set success,mtuSize:$mtuSize")
+                }
+            })
+        }
 
     }
 
@@ -143,6 +156,17 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, OnItemClickListe
                     override fun onError(errorType: Int, errorMsg: String) {
                         Log.i(TAG, "错误类型：$errorType 错误原因：$errorMsg")
                     }
+                    //低功耗蓝牙才需要BleNotifyCallBack
+                    //经典蓝牙可以只调两参方法connect(BluetoothDevice device, ConnectCallBack connectCallBack)
+                }, object : BleNotifyCallBack {
+                    override fun onNotifySuccess() {
+                        Log.i(TAG, "打开通知成功")
+                    }
+
+                    override fun onNotifyFailure(bleException: BleException?) {
+                        Log.i(TAG, "打开通知失败：" + bleException!!.message)
+                    }
+
                 })
     }
 
@@ -165,7 +189,7 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, OnItemClickListe
             override fun onError(errorType: Int, errorMsg: String?) {}
             override fun onScanFinished(bluetoothDevices: List<BluetoothDevice>?) {
                 Log.i(TAG, "扫描结束")
-                Toast.makeText(this@MainActivity,"扫描结束",Toast.LENGTH_LONG).show()
+                Toast.makeText(this@MainActivity, "扫描结束", Toast.LENGTH_LONG).show()
                 if (bluetoothDevices != null && bluetoothDevices.isNotEmpty()) {
                     list.clear()
                     list.addAll(bluetoothDevices)

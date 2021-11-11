@@ -1,6 +1,7 @@
 package com.hjy.bluetooth.operator.abstra
 
 import com.hjy.bluetooth.entity.BluetoothDevice
+import com.hjy.bluetooth.inter.BleNotifyCallBack
 import com.hjy.bluetooth.inter.ConnectCallBack
 
 /**
@@ -8,4 +9,5 @@ import com.hjy.bluetooth.inter.ConnectCallBack
  */
 abstract class Connector {
     abstract fun connect(device: BluetoothDevice, connectCallBack: ConnectCallBack?)
+    abstract fun connect(device: BluetoothDevice?, connectCallBack: ConnectCallBack?, notifyCallBack: BleNotifyCallBack?)
 }
