@@ -3,7 +3,8 @@ apply plugin: 'kotlin-android-extensions'
 apply plugin: 'kotlin-android'
 
 android {
-    compileSdkVersion 26
+    compileSdkVersion 28
+    buildToolsVersion "28.0.3"
     defaultConfig {
         applicationId "com.hjy.test"
         minSdkVersion 18
@@ -27,7 +28,7 @@ dependencies {
     testImplementation 'junit:junit:4.12'
     androidTestImplementation 'com.android.support.test:runner:1.0.2'
     androidTestImplementation 'com.android.support.test.espresso:espresso-core:3.0.2'
-    //implementation 'com.github.g-HJY:Kotlin-HBluetooth:V1.1.0'
+    //implementation 'com.github.g-HJY:Kotlin-HBluetooth:V1.3.0'
     implementation project(':BluetoothLib')
     implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk7:$kotlin_version"
 }

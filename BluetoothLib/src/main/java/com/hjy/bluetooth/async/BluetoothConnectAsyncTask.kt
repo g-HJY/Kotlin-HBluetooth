@@ -46,7 +46,7 @@ class BluetoothConnectAsyncTask(private val mContext: Context, private val bluet
                     }
                 }
             }
-            val hBluetooth = HBluetooth.getInstance(mContext)
+            val hBluetooth = HBluetooth.getInstance()
             hBluetooth.isConnected = bluetoothSocket.isConnected
             if (bluetoothSocket.isConnected) {
                 sender = hBluetooth.sender()
@@ -81,7 +81,7 @@ class BluetoothConnectAsyncTask(private val mContext: Context, private val bluet
     private val mReceiver: BroadcastReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context, intent: Intent) {
             if (BluetoothDevice.ACTION_ACL_DISCONNECTED == intent.action) {
-                HBluetooth.getInstance(mContext).isConnected = false
+                HBluetooth.getInstance().isConnected = false
                 connectCallBack?.onDisConnected()
             }
         }

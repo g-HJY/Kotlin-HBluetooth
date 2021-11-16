@@ -5,4 +5,4 @@ package com.hjy.bluetooth.exception
  * date   : 2021/9/9
  * desc   :
  */
-class BleException(message: String?) : Exception(message)
+class BluetoothException(message: String?) : Exception(message)

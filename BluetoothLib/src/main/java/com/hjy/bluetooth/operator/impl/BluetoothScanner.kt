@@ -17,6 +17,7 @@ import android.support.annotation.RequiresApi
 import com.hjy.bluetooth.entity.BluetoothDevice
 import com.hjy.bluetooth.inter.ScanCallBack
 import com.hjy.bluetooth.operator.abstra.Scanner
+import com.hjy.bluetooth.utils.ScanFilterUtils.isInFilter
 import java.util.*
 
 /**
@@ -114,6 +115,11 @@ class BluetoothScanner : Scanner {
                 // Get the BluetoothDevice object from the Intent
                 val device = intent
                         .getParcelableExtra<android.bluetooth.BluetoothDevice>(android.bluetooth.BluetoothDevice.EXTRA_DEVICE)
+
+                //If there is filtering, filter the scanning results
+                if (getFilter() != null && !isInFilter(device.name, getFilter()!!)) {
+                    return
+                }
                 // new device found
                 val bluetoothDevice = BluetoothDevice().apply {
                     isPaired = device.bondState == android.bluetooth.BluetoothDevice.BOND_BONDED
@@ -142,6 +148,10 @@ class BluetoothScanner : Scanner {
 
     //Ble scan callback before 5.0
     private val mLeScanCallBack = LeScanCallback { bluetoothDevice, i, bytes ->
+        //If there is filtering, filter the scanning results
+        if (getFilter() != null && !isInFilter(bluetoothDevice.name, getFilter()!!)) {
+            return@LeScanCallback
+        }
         val device = BluetoothDevice().apply {
             name = bluetoothDevice.name
             address = bluetoothDevice.address
@@ -169,6 +179,10 @@ class BluetoothScanner : Scanner {
         override fun onScanResult(callbackType: Int, result: ScanResult) {
             super.onScanResult(callbackType, result)
             val bluetoothDevice = result.device
+            //If there is filtering, filter the scanning results
+            if (getFilter() != null && !isInFilter(bluetoothDevice.name, getFilter()!!)) {
+                return
+            }
             val device = BluetoothDevice().apply {
                 name = bluetoothDevice.name
                 address = bluetoothDevice.address
@@ -224,6 +238,10 @@ class BluetoothScanner : Scanner {
             isScanning = false
         }
 
+    }
+
+    override fun resetCallBack() {
+        scanCallBack = null
     }
 
     private fun unregisterReceiver() {

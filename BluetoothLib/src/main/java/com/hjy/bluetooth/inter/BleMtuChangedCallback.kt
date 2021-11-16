@@ -1,6 +1,6 @@
 package com.hjy.bluetooth.inter
 
-import com.hjy.bluetooth.exception.BleException
+import com.hjy.bluetooth.exception.BluetoothException
 
 /**
  * author : HJY
@@ -8,6 +8,6 @@ import com.hjy.bluetooth.exception.BleException
  * desc   :
  */
 interface BleMtuChangedCallback {
-    fun onSetMTUFailure(realMtuSize: Int, bleException: BleException?)
+    fun onSetMTUFailure(realMtuSize: Int, bluetoothException: BluetoothException?)
     fun onMtuChanged(mtuSize: Int)
 }

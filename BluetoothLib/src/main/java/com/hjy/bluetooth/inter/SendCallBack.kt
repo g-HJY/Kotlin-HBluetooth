@@ -1,11 +1,11 @@
 package com.hjy.bluetooth.inter
 
-import java.io.DataInputStream
+import com.hjy.bluetooth.exception.BluetoothException
 
 /**
  * Created by _H_JY on 2018/10/24.
  */
 interface SendCallBack {
-    fun onSending()
-    fun onReceived(dataInputStream: DataInputStream?, result: ByteArray)
+    fun onSending(command: ByteArray?)
+    fun onSendFailure(bluetoothException: BluetoothException)
 }

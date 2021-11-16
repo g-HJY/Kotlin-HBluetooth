@@ -11,9 +11,10 @@ import android.widget.Toast
 import com.hjy.bluetooth.HBluetooth
 import com.hjy.bluetooth.HBluetooth.BleConfig
 import com.hjy.bluetooth.entity.BluetoothDevice
-import com.hjy.bluetooth.exception.BleException
+import com.hjy.bluetooth.exception.BluetoothException
 import com.hjy.bluetooth.inter.*
 import com.hjy.bluetooth.operator.abstra.Sender
+import com.hjy.test.Tools.bytesToHexString
 import java.io.DataInputStream
 import java.util.*
 
@@ -37,23 +38,26 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, OnItemClickListe
         listView.onItemClickListener = this
 
         //实例化HBluetooth
-        mHBluetooth = HBluetooth.getInstance(this)
+        mHBluetooth = HBluetooth.getInstance()
 
         //开启蓝牙功能
         mHBluetooth.enableBluetooth()
 
 
         //请填写你自己设备的UUID
-        //低功耗蓝牙才需要配置mHBluetooth.mBleConfig = ...
-        mHBluetooth.mBleConfig = BleConfig().apply {
+        //低功耗蓝牙才需要配置mHBluetooth.bleConfig = ...
+        mHBluetooth.bleConfig = BleConfig().apply {
             withServiceUUID("0000fe61-0000-1000-8000-00805f9b34fb")
             withWriteCharacteristicUUID("0000fe61-0000-1000-8000-00805f9b34fb")
             withNotifyCharacteristicUUID("0000fe61-0000-1000-8000-00805f9b34fb") //useCharacteristicDescriptor 默认为false
             //默认为false
             //useCharacteristicDescriptor(false)
+            //splitPacketToSendWhenCmdLenBeyond(false)
+            //连接后开启通知的延迟时间，单位ms，默认200ms
+            //notifyDelay(200)
             setMtu(200, object : BleMtuChangedCallback {
-                override fun onSetMTUFailure(realMtuSize: Int, bleException: BleException?) {
-                    Log.i(TAG, "bleException:" + bleException!!.message + "  realMtuSize:" + realMtuSize)
+                override fun onSetMTUFailure(realMtuSize: Int, bluetoothException: BluetoothException?) {
+                    Log.i(TAG, "bluetoothException:" + bluetoothException?.message + "  realMtuSize:" + realMtuSize)
                 }
 
                 override fun onMtuChanged(mtuSize: Int) {
@@ -62,7 +66,19 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, OnItemClickListe
             })
         }
 
+        initListener()
+
     }
+
+    private fun initListener(){
+        mHBluetooth.setReceiver(object : ReceiveCallBack {
+            override fun onReceived(dataInputStream: DataInputStream?, result: ByteArray?) {
+                // 打开通知后，设备发过来的数据将在这里出现
+                Log.e("mylog", "收到蓝牙设备返回数据->" + bytesToHexString(result))
+            }
+        })
+    }
+
 
     override fun onDestroy() {
         super.onDestroy()
@@ -125,22 +141,21 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, OnItemClickListe
     override fun onItemClick(adapterView: AdapterView<*>?, view: View, i: Int, l: Long) {
         val device = list[i]
         //调用连接器连接蓝牙设备
-        mHBluetooth.connector()
-                ?.connect(device, object : ConnectCallBack {
+        mHBluetooth.connect(device, object : ConnectCallBack {
                     override fun onConnecting() {
                         Log.i(TAG, "连接中...")
                     }
 
                     override fun onConnected(sender: Sender?) {
                         Log.i(TAG, "连接成功,isConnected:" + mHBluetooth.isConnected)
-                        //调用发送器发送命令
+                        //调用发送器发送命令,仅为模拟示范代码
                         sender?.send(byteArrayOf(0x01, 0x02), object : SendCallBack {
-                            override fun onSending() {
+                            override fun onSending(command:ByteArray?) {
                                 Log.i(TAG, "命令发送中...")
                             }
 
-                            override fun onReceived(dataInputStream: DataInputStream?, result: ByteArray) {
-                                Log.i(TAG, "onReceived->$dataInputStream---$result")
+                            override fun onSendFailure(bluetoothException: BluetoothException) {
+                                Log.i(TAG, "命令发送失败，bluetoothException:${bluetoothException.message}")
                             }
                         })
                     }
@@ -163,8 +178,8 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, OnItemClickListe
                         Log.i(TAG, "打开通知成功")
                     }
 
-                    override fun onNotifyFailure(bleException: BleException?) {
-                        Log.i(TAG, "打开通知失败：" + bleException!!.message)
+                    override fun onNotifyFailure(bluetoothException: BluetoothException?) {
+                        Log.i(TAG, "打开通知失败：${bluetoothException?.message}")
                     }
 
                 })

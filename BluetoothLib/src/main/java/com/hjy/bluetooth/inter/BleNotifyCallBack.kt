@@ -1,6 +1,6 @@
 package com.hjy.bluetooth.inter
 
-import com.hjy.bluetooth.exception.BleException
+import com.hjy.bluetooth.exception.BluetoothException
 
 /**
  * author : HJY
@@ -9,5 +9,5 @@ import com.hjy.bluetooth.exception.BleException
  */
 interface BleNotifyCallBack {
     fun onNotifySuccess()
-    fun onNotifyFailure(bleException: BleException?)
+    fun onNotifyFailure(bluetoothException: BluetoothException?)
 }

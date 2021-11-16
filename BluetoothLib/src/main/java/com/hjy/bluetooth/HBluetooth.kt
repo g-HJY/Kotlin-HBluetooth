@@ -1,18 +1,21 @@
 package com.hjy.bluetooth
 
 import android.annotation.SuppressLint
+import android.app.Application
 import android.bluetooth.BluetoothAdapter
 import android.bluetooth.BluetoothDevice
 import android.content.Context
 import android.support.annotation.IntDef
 import com.hjy.bluetooth.constant.ValueLimit
-import com.hjy.bluetooth.exception.BleException
-import com.hjy.bluetooth.inter.BleMtuChangedCallback
-import com.hjy.bluetooth.inter.ScanCallBack
+import com.hjy.bluetooth.entity.ScanFilter
+import com.hjy.bluetooth.exception.BluetoothException
+import com.hjy.bluetooth.inter.*
 import com.hjy.bluetooth.operator.abstra.Connector
+import com.hjy.bluetooth.operator.abstra.Receiver
 import com.hjy.bluetooth.operator.abstra.Scanner
 import com.hjy.bluetooth.operator.abstra.Sender
 import com.hjy.bluetooth.operator.impl.BluetoothConnector
+import com.hjy.bluetooth.operator.impl.BluetoothReceiver
 import com.hjy.bluetooth.operator.impl.BluetoothScanner
 import com.hjy.bluetooth.operator.impl.BluetoothSender
 
@@ -24,8 +27,9 @@ class HBluetooth private constructor(private val mContext: Context) {
     private lateinit var scanner: Scanner
     private lateinit var connector: Connector
     private lateinit var sender: Sender
+    private lateinit var receiver: Receiver
     var isConnected = false
-    var mBleConfig: BleConfig? = null
+    var bleConfig: BleConfig? = null
 
     @IntDef(BluetoothDevice.DEVICE_TYPE_CLASSIC.toLong(), BluetoothDevice.DEVICE_TYPE_LE.toLong())
     @kotlin.annotation.Retention(AnnotationRetention.SOURCE)
@@ -48,6 +52,7 @@ class HBluetooth private constructor(private val mContext: Context) {
         scanner = BluetoothScanner(mContext, mAdapter)
         connector = BluetoothConnector(mContext, mAdapter)
         sender = BluetoothSender()
+        receiver = BluetoothReceiver()
     }
 
     val bondedDevices: Set<BluetoothDevice>?
@@ -61,10 +66,34 @@ class HBluetooth private constructor(private val mContext: Context) {
         scanner?.scan(scanType, timeUse, scanCallBack)
     }
 
-    fun scanner(): Scanner? {
-        if (mAdapter == null || !mAdapter.isEnabled) {
-            throw RuntimeException("you must call enableBluetooth() first.")
+    /**
+     * @param scanType
+     * @param filter       Accurate or fuzzy matching scanning according to the device name
+     * @param scanCallBack
+     */
+    fun scan(@BluetoothType scanType: Int, filter: ScanFilter?, scanCallBack: ScanCallBack?) {
+        if (scanner != null) {
+            scanner.setFilter(filter)
+            scanner.scan(scanType, scanCallBack!!)
         }
+    }
+
+    /**
+     * @param scanType
+     * @param timeUse
+     * @param filter       Accurate or fuzzy matching scanning according to the device name
+     * @param scanCallBack
+     */
+    fun scan(@BluetoothType scanType: Int, timeUse: Int, filter: ScanFilter?, scanCallBack: ScanCallBack?) {
+        if (scanner != null) {
+            scanner.setFilter(filter)
+            scanner.scan(scanType, timeUse, scanCallBack!!)
+        }
+    }
+
+
+    fun scanner(): Scanner? {
+        checkIfEnableBluetoothFirst()
         return scanner
     }
 
@@ -78,18 +107,53 @@ class HBluetooth private constructor(private val mContext: Context) {
         sender?.destroyChannel()
     }
 
-    fun connector(): Connector? {
-        if (mAdapter == null || !mAdapter.isEnabled) {
-            throw RuntimeException("you must call enableBluetooth() first.")
+    private fun resetCallBack() {
+        if (sender != null) {
+            sender.resetCallBack()
         }
+        if (scanner != null) {
+            scanner.resetCallBack()
+        }
+    }
+
+    fun connector(): Connector? {
+        checkIfEnableBluetoothFirst()
         return connector
     }
 
+    fun connect(bluetoothDevice: com.hjy.bluetooth.entity.BluetoothDevice?, connectCallBack: ConnectCallBack?) {
+        connector?.connect(bluetoothDevice!!, connectCallBack)
+    }
+
+    fun connect(bluetoothDevice: com.hjy.bluetooth.entity.BluetoothDevice?, connectCallBack: ConnectCallBack?, bleNotifyCallBack: BleNotifyCallBack?) {
+        connector?.connect(bluetoothDevice, connectCallBack, bleNotifyCallBack)
+
+    }
+
+    fun send(cmd: ByteArray?, sendCallBack: SendCallBack?) {
+        sender?.send(cmd!!, sendCallBack)
+    }
+
     fun sender(): Sender? {
+        checkIfEnableBluetoothFirst()
+        return sender
+    }
+
+
+    fun setReceiver(receiveCallBack: ReceiveCallBack?): Receiver? {
+        receiver?.receiveCallBack = receiveCallBack
+        return receiver
+    }
+
+    fun receiver(): Receiver? {
+        checkIfEnableBluetoothFirst()
+        return receiver
+    }
+
+    private fun checkIfEnableBluetoothFirst() {
         if (mAdapter == null || !mAdapter.isEnabled) {
             throw RuntimeException("you must call enableBluetooth() first.")
         }
-        return sender
     }
 
 
@@ -104,6 +168,16 @@ class HBluetooth private constructor(private val mContext: Context) {
             private set
         var mtuSize = 0
             private set
+        var sendTimeInterval = 20
+            private set
+        var eachSplitPacketLen = 20
+            private set
+        var splitPacketToSendWhenCmdLenBeyond = false
+            private set
+
+        var notifyDelay = 200
+            private set
+
         private var mBleMtuChangedCallback: BleMtuChangedCallback? = null
 
         fun withServiceUUID(serviceUUID: String?): BleConfig = apply {
@@ -123,6 +197,41 @@ class HBluetooth private constructor(private val mContext: Context) {
         }
 
         /**
+         * @param splitPacketToSendWhenCmdLenBeyond default value = false
+         * @param sendTimeInterval                  unit is ms,default value = 20ms
+         * The time interval of subcontracting sending shall not be less than 20ms to avoid sending failure
+         * The default length of each subcontract is 20 bytes
+         * @return
+         */
+        fun splitPacketToSendWhenCmdLenBeyond(splitPacketToSendWhenCmdLenBeyond: Boolean, sendTimeInterval: Int): BleConfig = apply {
+            this.splitPacketToSendWhenCmdLenBeyond = splitPacketToSendWhenCmdLenBeyond
+            this.sendTimeInterval = sendTimeInterval
+        }
+
+        fun splitPacketToSendWhenCmdLenBeyond(splitPacketToSendWhenCmdLenBeyond: Boolean, sendTimeInterval: Int, eachSplitPacketLen: Int): BleConfig = apply {
+            this.splitPacketToSendWhenCmdLenBeyond = splitPacketToSendWhenCmdLenBeyond
+            this.sendTimeInterval = sendTimeInterval
+            this.eachSplitPacketLen = eachSplitPacketLen
+        }
+
+        /**
+         * @param splitPacketToSendWhenCmdLenBeyond default value = false
+         * sendTimeInterval's unit is ms,default value = 20ms
+         * The default length of each subcontract is 20 bytes
+         * @return
+         */
+        fun splitPacketToSendWhenCmdLenBeyond(splitPacketToSendWhenCmdLenBeyond: Boolean): BleConfig = apply {
+            this.splitPacketToSendWhenCmdLenBeyond = splitPacketToSendWhenCmdLenBeyond
+        }
+
+        /**
+         * default value = 200ms
+         */
+        fun notifyDelay(millisecond: Int): BleConfig = apply {
+            this.notifyDelay = millisecond
+        }
+
+        /**
          * set Mtu
          *
          * @param mtuSize
@@ -131,10 +240,10 @@ class HBluetooth private constructor(private val mContext: Context) {
         fun setMtu(mtuSize: Int, callback: BleMtuChangedCallback?): BleConfig = apply {
             requireNotNull(callback) { "BleMtuChangedCallback can not be Null!" }
             if (mtuSize > ValueLimit.DEFAULT_MAX_MTU) {
-                callback.onSetMTUFailure(mtuSize, BleException("requiredMtu should lower than 512 !"))
+                callback.onSetMTUFailure(mtuSize, BluetoothException("requiredMtu should lower than 512 !"))
             }
             if (mtuSize < ValueLimit.DEFAULT_MTU) {
-                callback.onSetMTUFailure(mtuSize, BleException("requiredMtu should higher than 23 !"))
+                callback.onSetMTUFailure(mtuSize, BluetoothException("requiredMtu should higher than 23 !"))
             }
             this.mtuSize = mtuSize
             mBleMtuChangedCallback = callback
@@ -143,6 +252,8 @@ class HBluetooth private constructor(private val mContext: Context) {
         fun getBleMtuChangedCallback(): BleMtuChangedCallback? {
             return mBleMtuChangedCallback
         }
+
+
     }
 
 
@@ -150,6 +261,7 @@ class HBluetooth private constructor(private val mContext: Context) {
     fun release() {
         cancelScan()
         destroyChannel()
+        resetCallBack()
     }
 
     companion object {
@@ -157,16 +269,60 @@ class HBluetooth private constructor(private val mContext: Context) {
         @Volatile
         private var mHBluetooth: HBluetooth? = null
 
-        fun getInstance(context: Context): HBluetooth {
+        @JvmStatic
+        fun getInstance(): HBluetooth {
             if (mHBluetooth == null) {
                 synchronized(HBluetooth::class) {
                     if (mHBluetooth == null) {
-                        mHBluetooth = HBluetooth(context.applicationContext)
+                        mHBluetooth = HBluetooth(getContext())
                     }
                 }
             }
             return mHBluetooth!!
         }
+
+        private var APPLICATION_CONTEXT: Context? = null
+
+        /**
+         * 反射获取 application context
+         */
+        private fun getContext(): Context {
+            if (null == APPLICATION_CONTEXT) {
+                try {
+                    val application = Class.forName("android.app.ActivityThread")
+                            .getMethod("currentApplication")
+                            .invoke(null, null as Array<Any?>?) as Application
+                    if (application != null) {
+                        APPLICATION_CONTEXT = application
+                        return application
+                    }
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                }
+                try {
+                    val application = Class.forName("android.app.AppGlobals")
+                            .getMethod("getInitialApplication")
+                            .invoke(null, null as Array<Any?>?) as Application
+                    if (application != null) {
+                        APPLICATION_CONTEXT = application
+                        return application
+                    }
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                }
+                throw IllegalStateException("ContextHolder is not initialed, it is recommend to init with application context.")
+            }
+            return APPLICATION_CONTEXT!!
+        }
+
+        /**
+         * 初始化context，如果由于不同机型导致反射获取context失败可以在Application调用此方法
+         */
+        @JvmStatic
+        fun init(context: Context?) {
+            APPLICATION_CONTEXT = context
+        }
     }
+
 
 }
