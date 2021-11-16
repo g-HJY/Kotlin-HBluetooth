@@ -28,7 +28,7 @@ class BluetoothScanner : Scanner {
     private var isScanning = false
     private var mContext: Context
     private var scanCallBack: ScanCallBack? = null
-    private lateinit var bluetoothLeScanner: BluetoothLeScanner
+    private var bluetoothLeScanner: BluetoothLeScanner? = null
     private lateinit var bluetoothDevices: MutableList<BluetoothDevice>
     private var bluetoothAdapter: BluetoothAdapter
     private var handler: Handler? = null
@@ -60,6 +60,10 @@ class BluetoothScanner : Scanner {
             return
         }
 
+        //Important, If we're already discovering or scanning, stop it!
+        isScanning = false
+        stopScan()
+
         bluetoothDevices = ArrayList()
 
 
@@ -80,18 +84,25 @@ class BluetoothScanner : Scanner {
             if (bluetoothAdapter.isDiscovering) {
                 bluetoothAdapter.cancelDiscovery()
             }
-            isScanning = true
-            bluetoothAdapter.startDiscovery()
+
+            if (!bluetoothAdapter.startDiscovery().also { isScanning = it }) {
+                this.scanCallBack?.onError(3, "Start discovery fail,make sure you have Bluetooth enabled or open permissions")
+            }
+
         } else if (this.scanType == BluetoothDevice.DEVICE_TYPE_LE) {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
                 //After 5.0 use BluetoothLeScanner to scan
                 //Because bluetoothAdapter.startLeScan deprecated
-                bluetoothLeScanner = bluetoothAdapter.bluetoothLeScanner
-                isScanning = true
-                bluetoothLeScanner?.startScan(mScanCallback)
-            } else {
-                isScanning = true
-                bluetoothAdapter.startLeScan(mLeScanCallBack)
+                bluetoothAdapter.bluetoothLeScanner?.let {
+                    bluetoothLeScanner = it
+                    isScanning = true
+                    bluetoothLeScanner?.startScan(mScanCallback)
+                } ?: let {
+                    this.scanCallBack?.onError(3, "BluetoothLeScanner is null,make sure you have Bluetooth enabled or open permissions")
+                }
+
+            } else if (!bluetoothAdapter.startLeScan(mLeScanCallBack).also { isScanning = it }) {
+                this.scanCallBack?.onError(3, "StartLeScan fail,make sure you have Bluetooth enabled or open permissions")
             }
         }
 
@@ -122,7 +133,7 @@ class BluetoothScanner : Scanner {
                 }
                 // new device found
                 val bluetoothDevice = BluetoothDevice().apply {
-                    isPaired = device.bondState == android.bluetooth.BluetoothDevice.BOND_BONDED
+                    isPaired = (device.bondState == android.bluetooth.BluetoothDevice.BOND_BONDED)
                     address = device.address
                     name = device.name
                     type = device.type
@@ -208,7 +219,7 @@ class BluetoothScanner : Scanner {
 
         override fun onScanFailed(errorCode: Int) {
             super.onScanFailed(errorCode)
-            scanCallBack?.onError(errorCode, "Scan Failed!")
+            scanCallBack?.onError(errorCode, "Scan failed!")
         }
     }
 
@@ -219,9 +230,9 @@ class BluetoothScanner : Scanner {
                 bluetoothAdapter.cancelDiscovery()
             }
             unregisterReceiver()
-        } else if (scanType == BluetoothDevice.DEVICE_TYPE_LE) {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP && bluetoothLeScanner != null) {
-                bluetoothLeScanner.stopScan(mScanCallback)
+        } else if (scanType == BluetoothDevice.DEVICE_TYPE_LE && bluetoothAdapter.state == BluetoothAdapter.STATE_ON) {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+                bluetoothLeScanner?.stopScan(mScanCallback)
             } else {
                 bluetoothAdapter.stopLeScan(mLeScanCallBack)
             }

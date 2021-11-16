@@ -152,7 +152,7 @@ class HBluetooth private constructor(private val mContext: Context) {
 
     private fun checkIfEnableBluetoothFirst() {
         if (mAdapter == null || !mAdapter.isEnabled) {
-            throw RuntimeException("you must call enableBluetooth() first.")
+            throw RuntimeException("You must call enableBluetooth() first.")
         }
     }
 
@@ -238,12 +238,12 @@ class HBluetooth private constructor(private val mContext: Context) {
          * @param callback
          */
         fun setMtu(mtuSize: Int, callback: BleMtuChangedCallback?): BleConfig = apply {
-            requireNotNull(callback) { "BleMtuChangedCallback can not be Null!" }
+            requireNotNull(callback) { "BleMtuChangedCallback can not be null !" }
             if (mtuSize > ValueLimit.DEFAULT_MAX_MTU) {
-                callback.onSetMTUFailure(mtuSize, BluetoothException("requiredMtu should lower than 512 !"))
+                callback.onSetMTUFailure(mtuSize, BluetoothException("Required mtuSize should lower than 512 !"))
             }
             if (mtuSize < ValueLimit.DEFAULT_MTU) {
-                callback.onSetMTUFailure(mtuSize, BluetoothException("requiredMtu should higher than 23 !"))
+                callback.onSetMTUFailure(mtuSize, BluetoothException("Required mtuSize should higher than 23 !"))
             }
             this.mtuSize = mtuSize
             mBleMtuChangedCallback = callback

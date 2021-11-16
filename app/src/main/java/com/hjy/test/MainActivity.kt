@@ -89,7 +89,7 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, OnItemClickListe
         if (view.id == R.id.btn_disconnect) {
             mHBluetooth.release()
         } else {
-            if (list != null && list.size > 0) {
+            if (list.size > 0) {
                 list.clear()
                 adapter.notifyDataSetChanged()
             }
@@ -124,7 +124,9 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, OnItemClickListe
                         }
                     }
 
-                    override fun onError(errorType: Int, errorMsg: String?) {}
+                    override fun onError(errorType: Int, errorMsg: String?) {
+                        Log.e(TAG, "errorType:$errorType  errorMsg:$errorMsg")
+                    }
                     override fun onScanFinished(bluetoothDevices: List<BluetoothDevice>?) {
                         Log.i(TAG, "扫描结束")
                         if (bluetoothDevices != null && bluetoothDevices.isNotEmpty()) {
@@ -201,7 +203,9 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, OnItemClickListe
                 }
             }
 
-            override fun onError(errorType: Int, errorMsg: String?) {}
+            override fun onError(errorType: Int, errorMsg: String?) {
+                Log.e(TAG, "errorType:$errorType  errorMsg:$errorMsg")
+            }
             override fun onScanFinished(bluetoothDevices: List<BluetoothDevice>?) {
                 Log.i(TAG, "扫描结束")
                 Toast.makeText(this@MainActivity, "扫描结束", Toast.LENGTH_LONG).show()

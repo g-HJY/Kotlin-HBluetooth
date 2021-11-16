@@ -8,7 +8,6 @@ import android.os.Handler
 import android.os.Looper
 import android.text.TextUtils
 import com.hjy.bluetooth.HBluetooth
-import com.hjy.bluetooth.HBluetooth.BleConfig
 import com.hjy.bluetooth.HBluetooth.Companion.getInstance
 import com.hjy.bluetooth.exception.BluetoothException
 import com.hjy.bluetooth.inter.BleNotifyCallBack
@@ -65,7 +64,7 @@ object BleNotifier {
             //it can actively send data to the mobile phone
             var descriptor: BluetoothGattDescriptor? = null
             var useCharacteristicDescriptor = false
-            val bleConfig: HBluetooth.BleConfig? = HBluetooth.getInstance().bleConfig
+            val bleConfig: HBluetooth.BleConfig? = getInstance().bleConfig
             if (bleConfig != null) {
                 useCharacteristicDescriptor = bleConfig.isUseCharacteristicDescriptor
             }
@@ -88,7 +87,7 @@ object BleNotifier {
             }
 
             if (notifySuccess) {
-                val receiver: BluetoothReceiver? = HBluetooth.getInstance().receiver() as BluetoothReceiver?
+                val receiver: BluetoothReceiver? = getInstance().receiver() as BluetoothReceiver?
                 if (receiver != null) {
                     receiver.finalNotifyDescriptor = descriptor
                 }
@@ -103,7 +102,7 @@ object BleNotifier {
      * Close the ble notification
      */
     fun closeNotification() {
-        val receiver: BluetoothReceiver? = HBluetooth.getInstance().receiver() as? BluetoothReceiver?
+        val receiver: BluetoothReceiver? = getInstance().receiver() as? BluetoothReceiver?
         receiver?.let {
             val bluetoothGattDescriptor: BluetoothGattDescriptor? = it.finalNotifyDescriptor
             if (bluetoothGattDescriptor != null) {

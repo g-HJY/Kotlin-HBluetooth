@@ -127,8 +127,6 @@ class BluetoothConnector : Connector {
         override fun onServicesDiscovered(gatt: BluetoothGatt, status: Int) {
             super.onServicesDiscovered(gatt, status)
             if (status == BluetoothGatt.GATT_SUCCESS) {
-                //At the software level, MTU setting is supported only when Android API version > = 21 (Android 5.0).
-                //At the hardware level, only modules with Bluetooth 4.2 and above can support the setting of MTU.
                 val hBluetooth = HBluetooth.getInstance()
                 val bleConfig: BleConfig? = hBluetooth.bleConfig
                 var mtuSize = 0
@@ -141,11 +139,12 @@ class BluetoothConnector : Connector {
                     writeCharacteristicUUID = bleConfig.writeCharacteristicUUID
                     notifyUUID = bleConfig.notifyCharacteristicUUID
                 }
+
                 //At the software level, MTU setting is supported only when Android API version > = 21 (Android 5.0).
                 //At the hardware level, only modules with Bluetooth 4.2 and above can support the setting of MTU.
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
-                    if (mtuSize in 24..511) {
-                        gatt.requestMtu(mtuSize)
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP && mtuSize > 23 && mtuSize < 512) {
+                    if (!gatt.requestMtu(mtuSize)) {
+                        bleConfig?.getBleMtuChangedCallback()?.onSetMTUFailure(-1, BluetoothException("Gatt requestMtu failed"))
                     }
                 }
 
@@ -198,7 +197,7 @@ class BluetoothConnector : Connector {
                 if (BluetoothGatt.GATT_SUCCESS == status && mtuSize == mtu) {
                     it.onMtuChanged(mtu)
                 } else {
-                    it.onSetMTUFailure(mtu, BluetoothException("MTU change failed!"))
+                    it.onSetMTUFailure(mtu, BluetoothException("MTU change warning! Real size of MTU is $mtu"))
                 }
             }
         }
