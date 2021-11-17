@@ -4,6 +4,8 @@ import android.bluetooth.BluetoothGatt
 import android.bluetooth.BluetoothGattCharacteristic
 import android.bluetooth.BluetoothGattService
 import android.bluetooth.BluetoothSocket
+import android.os.Handler
+import android.os.Looper
 import com.hjy.bluetooth.HBluetooth
 import com.hjy.bluetooth.HBluetooth.BleConfig
 import com.hjy.bluetooth.entity.BluetoothDevice
@@ -14,6 +16,7 @@ import com.hjy.bluetooth.operator.abstra.Sender
 import com.hjy.bluetooth.utils.ArrayUtils.splitBytes
 import com.hjy.bluetooth.utils.BleNotifier.closeNotification
 import com.hjy.bluetooth.utils.LockStore
+import com.hjy.bluetooth.utils.ReceiveHolder.receiveClassicBluetoothReturnData
 import java.io.DataInputStream
 import java.io.IOException
 import java.util.*
@@ -22,6 +25,7 @@ import java.util.*
  * Created by _H_JY on 2018/10/22.
  */
 class BluetoothSender : Sender() {
+    private val handler = Handler(Looper.getMainLooper())
     private var socket: BluetoothSocket? = null
     private var gatt: BluetoothGatt? = null
     private var characteristic: BluetoothGattCharacteristic? = null
@@ -86,6 +90,28 @@ class BluetoothSender : Sender() {
         sendCallBack = null
     }
 
+    private fun sendFailCallBack(failMsg: String) {
+        sendCallBack?.let {
+            if (Looper.myLooper() == Looper.getMainLooper()) {
+                it.onSendFailure(BluetoothException(failMsg))
+            } else {
+                //Call back on UI thread
+                handler.post { it.onSendFailure(BluetoothException(failMsg)) }
+            }
+        }
+    }
+
+    private fun sendingCallBack(command: ByteArray) {
+        sendCallBack?.let {
+            if (Looper.myLooper() == Looper.getMainLooper()) {
+                it.onSending(command)
+            } else {
+                //Call back on UI thread
+                handler.post { it.onSending(command) }
+            }
+        }
+    }
+
     override fun send(command: ByteArray, sendCallBack: SendCallBack?) {
         this.sendCallBack = sendCallBack
         if (LockStore.getLock(LOCK_NAME)) {
@@ -104,7 +130,7 @@ class BluetoothSender : Sender() {
                                 }
                             }
                             Thread.sleep(50)
-                            sendCallBack?.onSending(command)
+                            sendingCallBack(command)
 
                             //Send command.
                             val os = it.outputStream
@@ -117,13 +143,13 @@ class BluetoothSender : Sender() {
                             val size = it.inputStream.read(buffer)
                             val result = ByteArray(size)
                             System.arraycopy(buffer, 0, result, 0, size)
-                            HBluetooth.getInstance().receiver()?.receiveCallBack?.onReceived(dis, result)
+                            receiveClassicBluetoothReturnData(dis, result)
                         } catch (e: IOException) {
                             e.printStackTrace()
-                            sendCallBack?.onSendFailure(BluetoothException("Bluetooth socket write IOException"))
+                            sendFailCallBack("Bluetooth socket write IOException")
                         } catch (e: InterruptedException) {
                             e.printStackTrace()
-                            sendCallBack?.onSendFailure(BluetoothException("Bluetooth socket write InterruptedException"))
+                            sendFailCallBack("Bluetooth socket write InterruptedException")
                         } finally {
                             LockStore.releaseLock(LOCK_NAME)
                         }
@@ -156,7 +182,7 @@ class BluetoothSender : Sender() {
                     val objects = splitBytes(command, splitLen)
                     for (`object` in objects) {
                         val onceCmd = `object` as ByteArray
-                        bleSendCommand(onceCmd, serviceUUID!!, writeUUID!!, sendCallBack)
+                        bleSendCommand(onceCmd, serviceUUID!!, writeUUID!!)
                         try {
                             Thread.sleep(sendTimeInterval.toLong())
                         } catch (e: InterruptedException) {
@@ -165,7 +191,7 @@ class BluetoothSender : Sender() {
                     }
                 } else {
                     //If not set splitPacketWhenCmdLenBeyond=true on BleConfig,you need to set mtu when you want to send commands longer than 20
-                    bleSendCommand(command, serviceUUID!!, writeUUID!!, sendCallBack)
+                    bleSendCommand(command, serviceUUID!!, writeUUID!!)
                 }
                 LockStore.releaseLock(LOCK_NAME)
             } else {
@@ -183,25 +209,31 @@ class BluetoothSender : Sender() {
      * @param writeUUID
      * @param sendCallBack
      */
-    private fun bleSendCommand(command: ByteArray, serviceUUID: String, writeUUID: String, sendCallBack: SendCallBack?) {
+    private fun bleSendCommand(command: ByteArray, serviceUUID: String, writeUUID: String) {
         //Instead, get the characteristic before sending the command every time
         val service: BluetoothGattService = gatt!!.getService(UUID.fromString(serviceUUID))
         if (service != null) {
             characteristic = service.getCharacteristic(UUID.fromString(writeUUID))
 
+            if (characteristic == null) {
+                sendFailCallBack("The WriteCharacteristic is null, please check your writeUUID whether right")
+                return
+            }
+
             //Check whether can write
-            if (characteristic == null
-                    || characteristic!!.properties and (BluetoothGattCharacteristic.PROPERTY_WRITE or BluetoothGattCharacteristic.PROPERTY_WRITE_NO_RESPONSE) == 0) {
-                sendCallBack?.onSendFailure(BluetoothException("This characteristic not support write"))
+
+            //Check whether can write
+            if (characteristic!!.properties and (BluetoothGattCharacteristic.PROPERTY_WRITE or BluetoothGattCharacteristic.PROPERTY_WRITE_NO_RESPONSE) == 0) {
+                sendFailCallBack("This characteristic not support write")
                 return
             }
             characteristic!!.value = command
-            sendCallBack?.onSending(command)
-            if (!gatt!!.writeCharacteristic(characteristic) && sendCallBack != null) {
-                sendCallBack.onSendFailure(BluetoothException("Gatt writeCharacteristic fail, please check command or change the value of sendTimeInterval if you have set it"))
+            sendingCallBack(command)
+            if (!gatt!!.writeCharacteristic(characteristic)) {
+                sendFailCallBack("Gatt writeCharacteristic fail, please check command or change the value of sendTimeInterval if you have set it")
             }
         } else {
-            sendCallBack?.onSendFailure(BluetoothException("Main bluetoothGattService is null,please check the serviceUUID whether right"))
+            sendFailCallBack("Main bluetoothGattService is null,please check the serviceUUID whether right")
         }
     }
 
@@ -216,6 +248,31 @@ class BluetoothSender : Sender() {
             return ((o as BluetoothGatt?).also { gatt = it }) as T
         }
         return null
+    }
+
+
+    override fun readCharacteristic(serviceUUID: String?, characteristicUUID: String?, sendCallBack: SendCallBack?) {
+        this.sendCallBack = sendCallBack
+        gatt?.let {
+            val service: BluetoothGattService = it.getService(UUID.fromString(serviceUUID))
+            if (service != null) {
+                val characteristic = service.getCharacteristic(UUID.fromString(characteristicUUID))
+                if (characteristic == null) {
+                    sendFailCallBack("This Characteristic is null, please check the characteristicUUID whether right")
+                    return
+                }
+
+                //Check whether can read
+                if (characteristic.properties and BluetoothGattCharacteristic.PROPERTY_READ == 0) {
+                    sendFailCallBack("This characteristic not support read")
+                    return
+                }
+                if (!it.readCharacteristic(characteristic)) {
+                    sendFailCallBack("Gatt readCharacteristic fail")
+                } else {
+                }
+            } else sendFailCallBack("BluetoothGattService is null,please check the serviceUUID whether right")
+        } ?: sendFailCallBack("BluetoothGatt is null")
     }
 
     companion object {

@@ -10,9 +10,22 @@ import com.hjy.bluetooth.entity.ScanFilter
  */
 object ScanFilterUtils {
     fun isInFilter(deviceName: String?, filter: ScanFilter): Boolean {
-        if (TextUtils.isEmpty(deviceName)) {
-            return false
+
+        if (filter.names == null) return true
+
+        var isAllFilterNameEmpty = true
+        for (name in filter.names) {
+            if (!TextUtils.isEmpty(name)) {
+                isAllFilterNameEmpty = false
+                break
+            }
         }
+
+        if (isAllFilterNameEmpty) return true
+
+        if (TextUtils.isEmpty(deviceName)) return false
+
+
         val names: Array<String> = filter.names
         if (names != null && names.isNotEmpty()) {
             if (filter.isFuzzyMatching) {

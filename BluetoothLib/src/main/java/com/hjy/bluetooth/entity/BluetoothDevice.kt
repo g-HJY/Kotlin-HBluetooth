@@ -9,6 +9,7 @@ class BluetoothDevice {
     var address: String? = null
     var isPaired = false
     var scanRecord: ByteArray? = null
+    var rssi = 0
 
     override fun equals(obj: Any?): Boolean {
         if (obj is BluetoothDevice) {
@@ -18,13 +19,9 @@ class BluetoothDevice {
     }
 
     override fun toString(): String {
-        return "BluetoothDevice{" +
-                "name='" + name + '\'' +
-                ", type=" + type +
-                ", address='" + address + '\'' +
-                ", paired=" + isPaired +
-                '}'
+        return "BluetoothDevice(name=$name, type=$type, address=$address, isPaired=$isPaired, scanRecord=${scanRecord?.contentToString()}, rssi=$rssi)"
     }
+
 
     companion object {
         const val DEVICE_TYPE_CLASSIC = android.bluetooth.BluetoothDevice.DEVICE_TYPE_CLASSIC

@@ -49,6 +49,10 @@ class BluetoothScanner : Scanner {
     }
 
     private fun startScan(scanType: Int, timeUse: Int, scanCallBack: ScanCallBack) {
+        //Important, If we're already discovering or scanning, stop it!
+        isScanning = false
+        stopScan()
+
         this.scanType = scanType
         this.scanCallBack = scanCallBack
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.JELLY_BEAN_MR2) {
@@ -59,10 +63,6 @@ class BluetoothScanner : Scanner {
             this.scanCallBack?.onError(2, "Your device does not support low-power Bluetooth.")
             return
         }
-
-        //Important, If we're already discovering or scanning, stop it!
-        isScanning = false
-        stopScan()
 
         bluetoothDevices = ArrayList()
 
@@ -131,12 +131,16 @@ class BluetoothScanner : Scanner {
                 if (getFilter() != null && !isInFilter(device.name, getFilter()!!)) {
                     return
                 }
+
+                val rssi = intent.getShortExtra(android.bluetooth.BluetoothDevice.EXTRA_RSSI, Short.MIN_VALUE).toInt()
+
                 // new device found
                 val bluetoothDevice = BluetoothDevice().apply {
                     isPaired = (device.bondState == android.bluetooth.BluetoothDevice.BOND_BONDED)
                     address = device.address
                     name = device.name
                     type = device.type
+                    this.rssi = rssi
                 }
 
                 if (bluetoothDevices != null && bluetoothDevices.size > 0) {
@@ -158,30 +162,12 @@ class BluetoothScanner : Scanner {
     }
 
     //Ble scan callback before 5.0
-    private val mLeScanCallBack = LeScanCallback { bluetoothDevice, i, bytes ->
+    private val mLeScanCallBack = LeScanCallback { bluetoothDevice, rssi, bytes ->
         //If there is filtering, filter the scanning results
         if (getFilter() != null && !isInFilter(bluetoothDevice.name, getFilter()!!)) {
             return@LeScanCallback
         }
-        val device = BluetoothDevice().apply {
-            name = bluetoothDevice.name
-            address = bluetoothDevice.address
-            type = BluetoothDevice.DEVICE_TYPE_LE
-            scanRecord = bytes
-        }
-
-        if (bluetoothDevices.contains(device)) {
-            val index = bluetoothDevices.indexOf(device)
-            bluetoothDevices[index] = device
-        } else {
-            bluetoothDevices.add(device)
-        }
-        scanCallBack?.let {
-            if (handler == null) {
-                handler = Handler(Looper.getMainLooper())
-            }
-            handler?.post { it.onScanning(bluetoothDevices, device) }
-        }
+        handleBleScanResult(bluetoothDevice, rssi, bytes)
     }
 
     //Ble scan callback after 5.0
@@ -194,32 +180,37 @@ class BluetoothScanner : Scanner {
             if (getFilter() != null && !isInFilter(bluetoothDevice.name, getFilter()!!)) {
                 return
             }
-            val device = BluetoothDevice().apply {
-                name = bluetoothDevice.name
-                address = bluetoothDevice.address
-                type = BluetoothDevice.DEVICE_TYPE_LE
-                if (result.scanRecord != null) {
-                    scanRecord = result.scanRecord.bytes
-                }
-            }
-
-            if (bluetoothDevices.contains(device)) {
-                val index = bluetoothDevices.indexOf(device)
-                bluetoothDevices[index] = device
-            } else {
-                bluetoothDevices.add(device)
-            }
-            scanCallBack?.let {
-                if (handler == null) {
-                    handler = Handler(Looper.getMainLooper())
-                }
-                handler?.post { it.onScanning(bluetoothDevices, device) }
-            }
+            handleBleScanResult(bluetoothDevice, result.rssi,
+                    result.scanRecord?.bytes)
         }
 
         override fun onScanFailed(errorCode: Int) {
             super.onScanFailed(errorCode)
             scanCallBack?.onError(errorCode, "Scan failed!")
+        }
+    }
+
+    private fun handleBleScanResult(bluetoothDevice: android.bluetooth.BluetoothDevice, rssi: Int, scanRecord: ByteArray?) {
+        val device = BluetoothDevice().apply {
+            name = bluetoothDevice.name
+            address = bluetoothDevice.address
+            type = BluetoothDevice.DEVICE_TYPE_LE
+            isPaired = bluetoothDevice.bondState == android.bluetooth.BluetoothDevice.BOND_BONDED
+            this.rssi = rssi
+            this.scanRecord = scanRecord
+        }
+        if (bluetoothDevices.contains(device)) {
+            val index = bluetoothDevices.indexOf(device)
+            bluetoothDevices[index] = device
+        } else {
+            bluetoothDevices.add(device)
+        }
+
+        scanCallBack?.let {
+            if (handler == null) {
+                handler = Handler(Looper.getMainLooper())
+            }
+            handler?.post { it.onScanning(bluetoothDevices, device) }
         }
     }
 

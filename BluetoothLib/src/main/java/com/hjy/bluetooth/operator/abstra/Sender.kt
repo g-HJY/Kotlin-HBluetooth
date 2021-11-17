@@ -13,4 +13,13 @@ abstract class Sender {
     abstract fun <G> initSenderHelper(g: G): G?
     abstract fun destroyChannel()
     abstract fun resetCallBack()
+
+    /**
+     * Read characteristic according to the service uuid and characteristic uuid
+     *
+     * @param serviceUUID
+     * @param characteristicUUID
+     * @param sendCallBack
+     */
+    abstract fun readCharacteristic(serviceUUID: String?, characteristicUUID: String?, sendCallBack: SendCallBack?)
 }

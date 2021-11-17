@@ -17,6 +17,7 @@ import com.hjy.bluetooth.exception.BluetoothException
 import com.hjy.bluetooth.inter.*
 import com.hjy.bluetooth.operator.abstra.Connector
 import com.hjy.bluetooth.utils.BleNotifier.openNotification
+import com.hjy.bluetooth.utils.ReceiveHolder.receiveBleReturnData
 import java.util.*
 
 /**
@@ -202,10 +203,16 @@ class BluetoothConnector : Connector {
             }
         }
 
+        override fun onCharacteristicRead(gatt: BluetoothGatt?, characteristic: BluetoothGattCharacteristic?, status: Int) {
+            super.onCharacteristicRead(gatt, characteristic, status)
+            if (status == BluetoothGatt.GATT_SUCCESS) {
+                receiveBleReturnData(characteristic!!)
+            }
+        }
+
         override fun onCharacteristicChanged(gatt: BluetoothGatt, characteristic: BluetoothGattCharacteristic) {
             super.onCharacteristicChanged(gatt, characteristic)
-            val result = characteristic.value
-            HBluetooth.getInstance().receiver()?.receiveCallBack?.onReceived(null, result)
+            receiveBleReturnData(characteristic)
         }
     }
 }

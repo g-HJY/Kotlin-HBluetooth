@@ -58,13 +58,13 @@ class HBluetooth private constructor(private val mContext: Context) {
     val bondedDevices: Set<BluetoothDevice>?
         get() = if (mAdapter == null) null else mAdapter.bondedDevices
 
-    fun scan(@BluetoothType scanType: Int, scanCallBack: ScanCallBack) {
-        scanner?.scan(scanType, scanCallBack)
-    }
+    fun scan(@BluetoothType scanType: Int, scanCallBack: ScanCallBack) =
+            scanner?.scan(scanType, scanCallBack)
 
-    fun scan(@BluetoothType scanType: Int, timeUse: Int, scanCallBack: ScanCallBack) {
-        scanner?.scan(scanType, timeUse, scanCallBack)
-    }
+
+    fun scan(@BluetoothType scanType: Int, timeUse: Int, scanCallBack: ScanCallBack) =
+            scanner?.scan(scanType, timeUse, scanCallBack)
+
 
     /**
      * @param scanType
@@ -72,10 +72,8 @@ class HBluetooth private constructor(private val mContext: Context) {
      * @param scanCallBack
      */
     fun scan(@BluetoothType scanType: Int, filter: ScanFilter?, scanCallBack: ScanCallBack?) {
-        if (scanner != null) {
-            scanner.setFilter(filter)
-            scanner.scan(scanType, scanCallBack!!)
-        }
+        scanner?.setFilter(filter)
+        scanner?.scan(scanType, scanCallBack!!)
     }
 
     /**
@@ -85,10 +83,8 @@ class HBluetooth private constructor(private val mContext: Context) {
      * @param scanCallBack
      */
     fun scan(@BluetoothType scanType: Int, timeUse: Int, filter: ScanFilter?, scanCallBack: ScanCallBack?) {
-        if (scanner != null) {
-            scanner.setFilter(filter)
-            scanner.scan(scanType, timeUse, scanCallBack!!)
-        }
+        scanner?.setFilter(filter)
+        scanner?.scan(scanType, timeUse, scanCallBack!!)
     }
 
 
@@ -98,22 +94,15 @@ class HBluetooth private constructor(private val mContext: Context) {
     }
 
     @Synchronized
-    fun cancelScan() {
-        scanner?.stopScan()
-    }
+    fun cancelScan() = scanner?.stopScan()
 
     @Synchronized
-    fun destroyChannel() {
-        sender?.destroyChannel()
-    }
+    fun destroyChannel() = sender?.destroyChannel()
+
 
     private fun resetCallBack() {
-        if (sender != null) {
-            sender.resetCallBack()
-        }
-        if (scanner != null) {
-            scanner.resetCallBack()
-        }
+        sender?.resetCallBack()
+        scanner?.resetCallBack()
     }
 
     fun connector(): Connector? {
@@ -121,18 +110,21 @@ class HBluetooth private constructor(private val mContext: Context) {
         return connector
     }
 
-    fun connect(bluetoothDevice: com.hjy.bluetooth.entity.BluetoothDevice?, connectCallBack: ConnectCallBack?) {
-        connector?.connect(bluetoothDevice!!, connectCallBack)
-    }
+    fun connect(bluetoothDevice: com.hjy.bluetooth.entity.BluetoothDevice?, connectCallBack: ConnectCallBack?) =
+            connector?.connect(bluetoothDevice!!, connectCallBack)
 
-    fun connect(bluetoothDevice: com.hjy.bluetooth.entity.BluetoothDevice?, connectCallBack: ConnectCallBack?, bleNotifyCallBack: BleNotifyCallBack?) {
-        connector?.connect(bluetoothDevice, connectCallBack, bleNotifyCallBack)
 
-    }
+    fun connect(bluetoothDevice: com.hjy.bluetooth.entity.BluetoothDevice?, connectCallBack: ConnectCallBack?, bleNotifyCallBack: BleNotifyCallBack?) =
+            connector?.connect(bluetoothDevice, connectCallBack, bleNotifyCallBack)
 
-    fun send(cmd: ByteArray?, sendCallBack: SendCallBack?) {
-        sender?.send(cmd!!, sendCallBack)
-    }
+
+    fun send(cmd: ByteArray?, sendCallBack: SendCallBack?) =
+            sender?.send(cmd!!, sendCallBack)
+
+
+    fun readBleCharacteristic(serviceUUID: String?, characteristicUUID: String?, sendCallBack: SendCallBack?) =
+            sender?.readCharacteristic(serviceUUID, characteristicUUID, sendCallBack)
+
 
     fun sender(): Sender? {
         checkIfEnableBluetoothFirst()
@@ -193,7 +185,7 @@ class HBluetooth private constructor(private val mContext: Context) {
         }
 
         fun useCharacteristicDescriptor(useCharacteristicDescriptor: Boolean): BleConfig = apply {
-            isUseCharacteristicDescriptor = useCharacteristicDescriptor
+            this.isUseCharacteristicDescriptor = useCharacteristicDescriptor
         }
 
         /**
@@ -249,11 +241,7 @@ class HBluetooth private constructor(private val mContext: Context) {
             mBleMtuChangedCallback = callback
         }
 
-        fun getBleMtuChangedCallback(): BleMtuChangedCallback? {
-            return mBleMtuChangedCallback
-        }
-
-
+        fun getBleMtuChangedCallback(): BleMtuChangedCallback? = mBleMtuChangedCallback
     }
 
 
